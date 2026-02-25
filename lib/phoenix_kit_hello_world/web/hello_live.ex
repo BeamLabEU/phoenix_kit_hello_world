@@ -32,39 +32,128 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   """
   use Phoenix.LiveView
 
+  alias PhoenixKit.Users.Auth.Scope
+
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :page_title, "Hello World")}
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    {:ok,
+     assign(socket,
+       page_title: "Hello World",
+       user_email: scope && scope.user && scope.user.email,
+       user_roles: scope && Scope.user_roles(scope),
+       is_admin: scope && Scope.admin?(scope),
+       module_access: scope && Scope.has_module_access?(scope, "hello_world")
+     )}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex flex-col mx-auto max-w-2xl px-4 py-6">
+    <div class="flex flex-col mx-auto max-w-3xl px-4 py-6 gap-6">
+      <%!-- Status card --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body items-center text-center">
-          <div class="text-6xl mb-4">👋</div>
-          <h2 class="card-title text-3xl">Hello World!</h2>
-          <p class="text-base-content/70 mt-2">
-            This is a demo PhoenixKit plugin module installed as an external package.
-            If you can see this page, auto-discovery, routing, and permissions are all working.
+          <h2 class="card-title text-3xl">Hello World Plugin</h2>
+          <p class="text-base-content/70 mt-1">
+            This is an external PhoenixKit plugin module. Everything below confirms it's working.
           </p>
 
-          <div class="divider"></div>
+          <div class="flex flex-wrap gap-2 mt-4">
+            <div class="badge badge-success gap-1">Auto-discovery</div>
+            <div class="badge badge-success gap-1">Routing</div>
+            <div class="badge badge-success gap-1">Permissions</div>
+            <div class="badge badge-success gap-1">Admin layout</div>
+            <div class="badge badge-success gap-1">Sidebar tab</div>
+          </div>
+        </div>
+      </div>
 
-          <div class="bg-base-200 rounded-lg p-4 w-full text-left">
-            <h3 class="font-semibold mb-3">Module Info</h3>
-            <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <%!-- Module info --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-lg">Module Info</h3>
+            <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mt-2">
               <dt class="text-base-content/70">Module</dt>
-              <dd class="font-mono">{inspect(PhoenixKitHelloWorld)}</dd>
-              <dt class="text-base-content/70">Version</dt>
-              <dd class="font-mono">{PhoenixKitHelloWorld.version()}</dd>
+              <dd class="font-mono text-xs">{inspect(PhoenixKitHelloWorld)}</dd>
               <dt class="text-base-content/70">Key</dt>
               <dd class="font-mono">{PhoenixKitHelloWorld.module_key()}</dd>
+              <dt class="text-base-content/70">Version</dt>
+              <dd class="font-mono">{PhoenixKitHelloWorld.version()}</dd>
               <dt class="text-base-content/70">Enabled</dt>
-              <dd class="font-mono">{to_string(PhoenixKitHelloWorld.enabled?())}</dd>
+              <dd>
+                <span class={[
+                  "badge badge-sm",
+                  if(PhoenixKitHelloWorld.enabled?(), do: "badge-success", else: "badge-error")
+                ]}>
+                  {to_string(PhoenixKitHelloWorld.enabled?())}
+                </span>
+              </dd>
             </dl>
           </div>
+        </div>
+
+        <%!-- Current user info (demonstrates Scope API) --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-lg">Current User</h3>
+            <p class="text-base-content/60 text-xs">
+              via <code class="bg-base-200 px-1 rounded">@phoenix_kit_current_scope</code>
+            </p>
+            <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mt-2">
+              <dt class="text-base-content/70">Email</dt>
+              <dd class="font-mono text-xs">{@user_email || "—"}</dd>
+              <dt class="text-base-content/70">Roles</dt>
+              <dd>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    :for={role <- @user_roles || []}
+                    class="badge badge-sm badge-outline"
+                  >
+                    {role}
+                  </span>
+                </div>
+              </dd>
+              <dt class="text-base-content/70">Admin?</dt>
+              <dd class="font-mono">{to_string(@is_admin)}</dd>
+              <dt class="text-base-content/70">Module access?</dt>
+              <dd class="font-mono">{to_string(@module_access)}</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Next steps --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h3 class="card-title text-lg">Next Steps</h3>
+          <p class="text-base-content/70 text-sm">
+            This page is your starting point. Replace it with your own content.
+          </p>
+          <ul class="text-sm space-y-2 mt-2 list-none">
+            <li class="flex gap-2">
+              <span class="text-base-content/40">1.</span>
+              <span>Edit <code class="bg-base-200 px-1 rounded text-xs">lib/phoenix_kit_hello_world/web/hello_live.ex</code> — this file</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-base-content/40">2.</span>
+              <span>Update callbacks in <code class="bg-base-200 px-1 rounded text-xs">lib/phoenix_kit_hello_world.ex</code> — module key, name, tabs</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-base-content/40">3.</span>
+              <span>Add more pages by returning additional tabs from <code class="bg-base-200 px-1 rounded text-xs">admin_tabs/0</code></span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-base-content/40">4.</span>
+              <span>Add a settings page via <code class="bg-base-200 px-1 rounded text-xs">settings_tabs/0</code></span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-base-content/40">5.</span>
+              <span>See the <code class="bg-base-200 px-1 rounded text-xs">README.md</code> for the full guide</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
