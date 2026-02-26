@@ -33,8 +33,8 @@ defmodule PhoenixKitHelloWorld.MixProject do
   defp deps do
     [
       # PhoenixKit provides the Module behaviour and Settings API.
-      # For a published hex package, use: {:phoenix_kit, "~> 1.7"}
-      {:phoenix_kit, path: "../phoenix_kit"},
+      # For local development, use: {:phoenix_kit, path: "../phoenix_kit"}
+      {:phoenix_kit, "~> 1.7 and >= 1.7.50"},
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.0"},
