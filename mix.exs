@@ -17,6 +17,9 @@ defmodule PhoenixKitHelloWorld.MixProject do
         "Hello World demo module for PhoenixKit — use as a template for your own plugins",
       package: package(),
 
+      # Dialyzer
+      dialyzer: [plt_add_apps: [:phoenix_kit]],
+
       # Docs
       name: "PhoenixKitHelloWorld",
       source_url: @source_url,
@@ -33,14 +36,18 @@ defmodule PhoenixKitHelloWorld.MixProject do
   defp deps do
     [
       # PhoenixKit provides the Module behaviour and Settings API.
-      # For a published hex package, use: {:phoenix_kit, "~> 1.7"}
-      {:phoenix_kit, path: "../phoenix_kit"},
+      # For local development, use: {:phoenix_kit, path: "../phoenix_kit"}
+      {:phoenix_kit, "~> 1.7 and >= 1.7.50"},
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.0"},
 
       # Optional: add ex_doc for generating documentation
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+
+      # Code quality
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
