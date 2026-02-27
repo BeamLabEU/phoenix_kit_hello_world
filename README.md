@@ -113,7 +113,7 @@ defmodule MyPhoenixKitModule do
         id: :admin_my_module,
         label: "My Module",
         icon: "hero-puzzle-piece",
-        path: "/admin/my-module",
+        path: "my-module",
         priority: 650,
         level: :admin,
         permission: module_key(),
@@ -201,7 +201,7 @@ def settings_tabs do
       id: :settings_my_module,
       label: "My Module",
       icon: "hero-puzzle-piece",
-      path: "/admin/settings/my-module",
+      path: "my-module",
       level: :settings,
       permission: module_key(),
       live_view: {MyPhoenixKitModule.Web.SettingsLive, :index}
@@ -249,7 +249,7 @@ def admin_tabs do
       id: :admin_my_module,
       label: "My Module",
       icon: "hero-puzzle-piece",
-      path: "/admin/my-module",
+      path: "my-module",
       priority: 650,
       level: :admin,
       permission: module_key(),
@@ -260,7 +260,7 @@ def admin_tabs do
     # Detail page (not in sidebar, but keeps parent tab highlighted)
     %Tab{
       id: :admin_my_module_detail,
-      path: "/admin/my-module/:id",
+      path: "my-module/:id",
       level: :admin,
       permission: module_key(),
       visible: false,
@@ -271,7 +271,7 @@ def admin_tabs do
 end
 ```
 
-For pages that shouldn't appear in the sidebar, set `visible: false`. The `:parent` field keeps the parent tab highlighted when viewing the child page. Use `:match` with `:prefix` on the parent so `/admin/my-module/anything` keeps it active.
+For pages that shouldn't appear in the sidebar, set `visible: false`. The `:parent` field keeps the parent tab highlighted when viewing the child page. Use `:match` with `:prefix` on the parent so `my-module/anything` keeps it active.
 
 ## Available PhoenixKit APIs
 
@@ -312,7 +312,7 @@ Tabs define sidebar entries. Key fields:
 | `:id` | atom | Unique identifier (prefix with your module name) |
 | `:label` | string | Display text in sidebar |
 | `:icon` | string | Heroicon name (e.g. `"hero-puzzle-piece"`) |
-| `:path` | string | URL path (must start with `/admin`, use hyphens) |
+| `:path` | string | Relative path slug (e.g. `"my-module"`, use hyphens). Core prepends `/admin/` for admin tabs, `/admin/settings/` for settings tabs. Paths starting with `/` are used as-is. |
 | `:priority` | integer | Sort order (lower = higher in sidebar) |
 | `:level` | atom | `:admin` or `:settings` |
 | `:permission` | string | Permission key (use `module_key()`) |
@@ -482,7 +482,7 @@ Browse the full set at [heroicons.com](https://heroicons.com). Use outline style
 
 1. **Check `:live_view` field** — must be `{MyModule.Web.SomeLive, :action}` with a real module
 2. **Check the LiveView compiles** — typo in the module name?
-3. **Check `:path` uses hyphens** — `/admin/my-module` not `/admin/my_module`
+3. **Check `:path` uses hyphens** — `"my-module"` not `"my_module"`
 4. **Restart the server** — routes are compiled at startup, not hot-reloaded
 
 ### Permission denied (302 redirect)
@@ -559,7 +559,7 @@ No config needed — auto-discovery handles the rest.
 1. **`module_key/0`** must be unique across all modules
 2. **`permission_metadata().key`** must match `module_key/0`
 3. **Tab `:id`** must be unique across all modules (prefix with `:admin_yourmodule`)
-4. **Tab `:path`** must start with `/admin` and use **hyphens** not underscores
+4. **Tab `:path`** — use relative slugs with **hyphens** (e.g., `"my-module"`). Core prepends `/admin/` or `/admin/settings/` based on context. Use absolute paths (starting with `/`) only for special cases.
 5. **Tab `:permission`** should match `module_key/0` so custom roles get proper access
 6. **`enabled?/0`** should rescue and return `false` — it's called before migrations run
 

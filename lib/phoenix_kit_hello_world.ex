@@ -153,7 +153,7 @@ defmodule PhoenixKitHelloWorld do
         id: :admin_hello_world,
         label: "Hello World",
         icon: "hero-hand-raised",
-        path: "/admin/hello-world",
+        path: "hello-world",
         priority: 640,
         level: :admin,
         permission: module_key(),
