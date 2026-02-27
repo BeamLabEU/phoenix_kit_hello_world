@@ -2,6 +2,8 @@
 
 A minimal PhoenixKit plugin module. Use this as a template for building your own.
 
+Modules can be **full-featured** (admin pages, settings, routes) or **headless** (just functions and tools, no UI). This module demonstrates the full-featured pattern. See [Headless modules](#headless-modules) for the lightweight alternative.
+
 ## What this demonstrates
 
 - Zero-config auto-discovery (just add the dep, no config line needed)
@@ -158,6 +160,148 @@ The admin layout (sidebar, header, theme) is applied automatically. You don't ne
 
 Run `mix deps.get`, start the server, and your module appears in the admin panel.
 
+## Headless modules
+
+Not every module needs admin pages. A **headless module** provides functions, tools, or background workers — no tabs, no routes, no LiveViews. It still gets auto-discovery, enable/disable toggles, and permission integration.
+
+### Minimal example
+
+```elixir
+defmodule MyPhoenixKitUtils do
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Settings
+
+  # --- Required callbacks (5 total) ---
+
+  @impl true
+  def module_key, do: "my_utils"
+
+  @impl true
+  def module_name, do: "My Utils"
+
+  @impl true
+  def enabled? do
+    Settings.get_boolean_setting("my_utils_enabled", false)
+  rescue
+    _ -> false
+  end
+
+  @impl true
+  def enable_system do
+    Settings.update_boolean_setting_with_module("my_utils_enabled", true, module_key())
+  end
+
+  @impl true
+  def disable_system do
+    Settings.update_boolean_setting_with_module("my_utils_enabled", false, module_key())
+  end
+
+  # --- Optional: permission metadata ---
+  # Include this if you want the module to appear in the roles/permissions matrix.
+  # Omit it if the module is always available to all users.
+
+  @impl true
+  def permission_metadata do
+    %{
+      key: module_key(),
+      label: "My Utils",
+      icon: "hero-wrench-screwdriver",
+      description: "Utility functions for data processing"
+    }
+  end
+
+  # --- Your public API ---
+  # No admin_tabs, settings_tabs, user_dashboard_tabs, or route_module needed.
+  # All default to empty/nil automatically.
+
+  def calculate(x, y), do: x + y
+
+  def format_currency(amount, currency \\ "USD") do
+    # ...
+  end
+
+  def send_notification(user, message) do
+    if enabled?() do
+      # ...
+      :ok
+    else
+      {:error, :module_disabled}
+    end
+  end
+end
+```
+
+That's it. No LiveView, no routes, no templates. The module:
+
+- **Auto-discovered** — just add the dep, appears on Admin > Modules
+- **Toggleable** — enable/disable from the admin panel
+- **Permission-gated** — custom roles can be granted or denied access via the permissions matrix
+- **API-only** — other modules and the parent app call its functions directly
+
+### What you get without any UI callbacks
+
+| Feature | How |
+|---|---|
+| Shows on Admin > Modules page | Automatic (auto-discovery) |
+| Enable/disable toggle | Via `enable_system/0` and `disable_system/0` |
+| Permission in roles matrix | Via `permission_metadata/0` (optional) |
+| Access check in code | `Scope.has_module_access?(scope, "my_utils")` |
+| Background workers | Override `children/0` to return supervisor child specs |
+| Config stats on Modules page | Override `get_config/0` to return a stats map |
+
+### When to use headless vs full-featured
+
+| Use headless when... | Use full-featured when... |
+|---|---|
+| Module provides utility functions | Module needs its own admin page |
+| Module runs background jobs | Users need to view/edit data in a UI |
+| Module extends other modules' APIs | Module has settings to configure |
+| Module is a data pipeline or integration | Module has its own dashboard section |
+
+### Adding a worker to a headless module
+
+```elixir
+@impl true
+def children do
+  if enabled?() do
+    [{MyPhoenixKitUtils.SyncWorker, interval: :timer.minutes(5)}]
+  else
+    []
+  end
+end
+```
+
+### Guarding API calls with enabled?()
+
+For modules that should no-op when disabled:
+
+```elixir
+def process(data) do
+  if enabled?() do
+    do_process(data)
+  else
+    {:error, :module_disabled}
+  end
+end
+```
+
+For modules where the API is always available but behavior changes:
+
+```elixir
+def enrich(record) do
+  if enabled?() do
+    %{record | ai_summary: generate_summary(record)}
+  else
+    record  # pass through unchanged
+  end
+end
+```
+
+### Real-world example
+
+PhoenixKit's built-in **Connections** module follows this pattern — 50+ public API functions for follows, connections, and blocks. Zero admin tabs, zero routes. It's toggled on/off from the Modules page and its permission key gates access in the roles matrix, but all interaction happens through function calls from other modules and the parent app.
+
 ## Project structure
 
 ```
@@ -190,6 +334,10 @@ mix.exs                               # Package configuration
 | `route_module/0` | No | `nil` | Custom route macros |
 
 ## Common patterns
+
+### Headless module (no UI)
+
+See [Headless modules](#headless-modules) above for the full guide. The short version: don't override `admin_tabs/0`, `settings_tabs/0`, or `user_dashboard_tabs/0` — the defaults return `[]` and no sidebar entries or routes are created.
 
 ### Adding a settings subtab
 
@@ -411,10 +559,19 @@ This is how the Publishing module integrates with AI — translation features ap
 
 After adding your module to the parent app and starting the server, check:
 
+**Full-featured modules:**
+
 1. **Admin > Modules page** — your module should appear with its name, icon, and toggle
 2. **Admin sidebar** — your tab should appear under the Modules group (if enabled)
 3. **Admin > Roles** — your permission key should appear in the permissions matrix
 4. **Click the tab** — your LiveView should render inside the admin layout
+
+**Headless modules:**
+
+1. **Admin > Modules page** — your module should appear with its name, icon, and toggle
+2. **Admin > Roles** — your permission key should appear (if you defined `permission_metadata/0`)
+3. **No sidebar entry** — expected, since there are no tabs
+4. **Call your functions** — verify your API works from `iex -S mix` or from another module
 
 The Admin role automatically gets access to new modules. Custom roles need the permission granted by an Owner or Admin.
 
