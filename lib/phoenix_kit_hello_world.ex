@@ -36,6 +36,21 @@ defmodule PhoenixKitHelloWorld do
   - Live sidebar updates (no page reload needed when toggling)
   - Route auto-generated at compile time from the `live_view` field
 
+  ## Navigation paths
+
+  All `href` attributes and `redirect/2` calls must go through
+  `PhoenixKit.Utils.Routes.path/1` — never use relative paths.
+  Create a `Paths` module (e.g., `MyModule.Paths`) that wraps
+  `Routes.path/1` to centralize your module's paths in one place.
+  See the README for the full pattern.
+
+  ## JavaScript
+
+  External modules cannot inject into the parent app's JS build pipeline.
+  All JavaScript must be **inline `<script>` tags** in your templates.
+  Register hooks on `window.PhoenixKitHooks` — PhoenixKit spreads this
+  into the LiveSocket automatically. See the README for full details.
+
   ## Callbacks overview
 
   | Callback              | Required? | What it does                                      |
@@ -53,6 +68,7 @@ defmodule PhoenixKitHelloWorld do
   | `get_config/0`        | No        | Stats/config map shown on the Modules page         |
   | `route_module/0`      | No        | Module providing custom route macros               |
   | `user_dashboard_tabs/0` | No     | Tabs for the user-facing dashboard                 |
+  | `migration_module/0`  | No        | Versioned migration coordinator module             |
   """
 
   use PhoenixKit.Module
@@ -172,6 +188,7 @@ defmodule PhoenixKitHelloWorld do
   #   def user_dashboard_tabs, do: []
   #   def children, do: []
   #   def route_module, do: nil
+  #   def migration_module, do: nil
   #
   # See the PhoenixKit.Module docs for details on each.
   # ===========================================================================

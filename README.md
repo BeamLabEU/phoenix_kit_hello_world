@@ -332,6 +332,7 @@ mix.exs                               # Package configuration
 | `user_dashboard_tabs/0` | No | `[]` | User dashboard tabs |
 | `children/0` | No | `[]` | Supervisor child specs |
 | `route_module/0` | No | `nil` | Custom route macros |
+| `migration_module/0` | No | `nil` | Versioned migration coordinator |
 
 ## Common patterns
 
@@ -469,14 +470,55 @@ Tabs define sidebar entries. Key fields:
 | `:live_view` | tuple | `{MyModule.Web.SomeLive, :action}` for auto-routing |
 | `:parent` | atom | Parent tab ID (for subtabs, e.g. `:admin_settings`) |
 
-### Routes (`PhoenixKit.Routes`)
+### Routes & Navigation (`PhoenixKit.Utils.Routes`)
 
-Prefix-aware path helpers. Never hardcode `/phoenix_kit/...` paths.
+All navigation — template `href` attributes, `redirect/2` calls, `navigate` — **must** go through `Routes.path/1`. This handles the configurable URL prefix (e.g., `/phoenix_kit`) and locale prefix (e.g., `/ja`) automatically.
 
 ```elixir
-Routes.path("/admin/my-module")       # respects configured URL prefix
+alias PhoenixKit.Utils.Routes
+
+Routes.path("/admin/my-module")       # → /phoenix_kit/ja/admin/my-module
 Routes.url("/users/confirm/#{token}") # full URL for emails
 ```
+
+**Never use relative paths** in `href` or `redirect(to:)` — the browser resolves them relative to the current URL, which breaks when locale/prefix segments are in the path.
+
+**Create a Paths module** to centralize all your module's paths in one place. This way if your admin path ever changes, you update one file instead of every template:
+
+```elixir
+# lib/my_phoenix_kit_module/paths.ex
+defmodule MyPhoenixKitModule.Paths do
+  alias PhoenixKit.Utils.Routes
+
+  @base "/admin/my-module"
+
+  def index, do: Routes.path(@base)
+  def show(uuid), do: Routes.path("#{@base}/#{uuid}")
+  def edit(uuid), do: Routes.path("#{@base}/#{uuid}/edit")
+  def settings, do: Routes.path("#{@base}/settings")
+end
+```
+
+Then in templates and server-side code:
+
+```elixir
+alias MyPhoenixKitModule.Paths
+
+# In templates:
+<a href={Paths.edit(@item.uuid)}>Edit</a>
+
+# In redirects:
+redirect(socket, to: Paths.index())
+```
+
+**Tab `path` field vs template paths** — these are two different systems:
+
+| Where | How to specify paths |
+|---|---|
+| Tab struct `path` field | `"my-module"` (relative — core prepends `/admin/`) |
+| Template `href` / `redirect` | `Paths.index()` (via your Paths module wrapping `Routes.path/1`) |
+
+Tab structs use a relative convention where the core handles the `/admin/` prefix. Template paths and redirects are raw — they need the full path via `Routes.path/1`. The Paths module bridges this gap by centralizing the `/admin/my-module` base path in one `@base` attribute.
 
 ### Date formatting (`PhoenixKit.Utils.Date`)
 
@@ -711,6 +753,60 @@ Users install with:
 
 No config needed — auto-discovery handles the rest.
 
+## JavaScript conventions
+
+External modules **cannot inject files into the parent app's asset pipeline** (`app.js`). All JavaScript must be delivered as **inline `<script>` tags** in your LiveView templates.
+
+### How inline hooks work
+
+PhoenixKit's `app.js` collects hooks from `window.PhoenixKitHooks` when creating the LiveSocket. Your inline `<script>` tags in `<body>` execute **before** deferred `<head>` scripts, so the hooks are registered in time.
+
+```elixir
+# lib/my_module/web/components/my_scripts.ex
+defmodule MyModule.Web.Components.MyScripts do
+  use Phoenix.Component
+
+  def my_scripts(assigns) do
+    ~H"""
+    <script>
+      window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+      window.PhoenixKitHooks.MyHook = {
+        mounted() {
+          // Your hook logic here
+        }
+      };
+    </script>
+    """
+  end
+end
+```
+
+Then in your LiveView template:
+
+```heex
+<.my_scripts />
+<div id="my-widget" phx-hook="MyHook" phx-update="ignore">
+  ...
+</div>
+```
+
+### Key rules for inline JS
+
+- Register hooks on `window.PhoenixKitHooks` — PhoenixKit spreads this into the LiveSocket
+- Pages using hooks must be entered via **full page load** (`redirect/2` or plain `<a href>`), not `navigate/2`, so the inline script executes
+- For large vendor libraries (e.g., GrapesJS), ship them in `priv/static/vendor/` and load via `<script src>` tag — the install task copies them to the parent app's `priv/static/`
+- Never assume access to `node_modules`, `esbuild`, or the parent app's JS build
+
+### Vendor JS files
+
+If your module needs a large third-party library:
+
+1. Bundle the minified file in `priv/static/vendor/your_lib/`
+2. Your install task copies it to the parent app's `priv/static/vendor/`
+3. Load it via `<script src={~p"/vendor/your_lib/lib.min.js"}>` in your template
+
+This is how the Document Creator module ships GrapesJS — the file lives in `priv/static/vendor/grapesjs/` and is copied during `mix phoenix_kit_document_creator.install`.
+
 ## Important rules
 
 1. **`module_key/0`** must be unique across all modules
@@ -737,33 +833,111 @@ Never use generic names like `items` or `posts` — another module or the parent
 
 ### Migrations
 
-External plugins can't add to phoenix_kit's internal versioned migration sequence (V01–V62). Instead, ship a mix task that generates migrations into the parent app:
+If your module needs database tables, use the **versioned migration** system. This lets users auto-upgrade their database schema when they update your dep — no manual migration files needed.
+
+#### How it works
+
+1. Your module implements `migration_module/0` returning a coordinator module
+2. The coordinator tracks version numbers via SQL comments on a table
+3. Each version is an immutable module (V01, V02, etc.) that creates or alters tables
+4. `mix phoenix_kit.update` auto-detects all module migrations and runs them
+
+#### Setting up versioned migrations
+
+**1. Create version modules** — each one is immutable once shipped:
+
+```elixir
+# lib/my_module/migration/postgres/v01.ex
+defmodule MyModule.Migration.Postgres.V01 do
+  use Ecto.Migration
+
+  def up(opts) do
+    prefix = Map.get(opts, :prefix, "public")
+
+    create_if_not_exists table(:phoenix_kit_my_module_items, prefix: prefix, primary_key: false) do
+      add :uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()")
+      add :name, :string, null: false
+      timestamps(type: :utc_datetime)
+    end
+  end
+
+  def down(opts) do
+    prefix = Map.get(opts, :prefix, "public")
+    drop_if_exists table(:phoenix_kit_my_module_items, prefix: prefix)
+  end
+end
+```
+
+**2. Create a migration coordinator** — manages version detection and sequencing:
+
+```elixir
+# lib/my_module/migration.ex
+defmodule MyModule.Migration do
+  use Ecto.Migration
+
+  @initial_version 1
+  @current_version 1
+  @version_table "phoenix_kit_my_module_items"  # table used for version tracking
+
+  def current_version, do: @current_version
+
+  def up(opts \\ []) do
+    # Detect current DB version, run only needed migrations
+    # See PhoenixKitDocumentCreator.Migration for full implementation
+  end
+
+  def down(opts \\ []) do
+    # Roll back in reverse order
+  end
+
+  def migrated_version_runtime(opts \\ []) do
+    # Read version from SQL comment on @version_table
+    # Called by `mix phoenix_kit.update` with [prefix: "public"]
+  end
+end
+```
+
+See `PhoenixKitDocumentCreator.Migration` for a complete, production-ready coordinator.
+
+**3. Return the coordinator from your module:**
+
+```elixir
+@impl PhoenixKit.Module
+def migration_module, do: MyModule.Migration
+```
+
+**4. Ship an install task** for first-time setup:
 
 ```elixir
 # lib/mix/tasks/my_module.install.ex
 defmodule Mix.Tasks.MyModule.Install do
   use Mix.Task
 
-  @shortdoc "Generates MyModule database migrations"
+  @shortdoc "Generates MyModule database migration"
 
   def run(_args) do
-    source = Application.app_dir(:my_phoenix_kit_module, "priv/templates/migrations")
-    target = Path.join(Mix.Project.app_path(), "../../priv/repo/migrations")
-
-    # Copy migration templates with timestamps
-    # ...
+    # Generate a migration file that calls MyModule.Migration.up()
   end
 end
 ```
 
-Then the user runs:
+#### How upgrades work
 
-```bash
-mix my_module.install
-mix ecto.migrate
-```
+When a user updates your dep and runs `mix phoenix_kit.update`:
 
-This is the same pattern phoenix_kit itself uses with `mix phoenix_kit.install`.
+1. PhoenixKit discovers your module via beam scanning
+2. Calls `migration_module/0` to find the coordinator
+3. Compares `migrated_version_runtime(prefix: prefix)` with `current_version()`
+4. If behind, generates a migration file and runs `mix ecto.migrate`
+
+Fresh installs run V01 → V02 → ... sequentially. Upgrades only run the versions after the current DB version.
+
+#### Key rules
+
+- **Version modules are immutable** — never edit a shipped V01. Add a V02 instead.
+- **V01 creates the original schema** — even if you later change it. V02 ALTERs it.
+- **Use `create_if_not_exists`** and `add_if_not_exists` for idempotency
+- **Track version via SQL comment** — `COMMENT ON TABLE {table} IS '{version}'`
 
 ### Foreign keys to phoenix_kit tables
 
