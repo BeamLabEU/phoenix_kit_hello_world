@@ -44,6 +44,7 @@ This is a **library** (not a standalone Phoenix app) — there is no `config/` d
 - **URL paths**: use hyphens, not underscores (`"hello-world"`)
 - **Navigation paths**: always use `PhoenixKit.Utils.Routes.path/1`, never relative paths
 - **`enabled?/0`**: must rescue errors and return `false` as fallback (DB may not be available)
+- **LiveViews use `PhoenixKitWeb` macros** — use `use PhoenixKitWeb, :live_view` (not `use Phoenix.LiveView` directly). This imports PhoenixKit's core components (`<.icon>`, `<.button>`, etc.), Gettext, layout config, and HTML helpers. Use PhoenixKit components for consistent admin UI.
 - **JavaScript hooks**: must be inline `<script>` tags; register on `window.PhoenixKitHooks`
 - **LiveView assigns** available in admin pages: `@phoenix_kit_current_scope`, `@current_locale`, `@url_path`
 

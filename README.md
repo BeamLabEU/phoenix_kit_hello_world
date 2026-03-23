@@ -197,7 +197,7 @@ end
 
 ```elixir
 defmodule MyPhoenixKitModule.Web.IndexLive do
-  use Phoenix.LiveView
+  use PhoenixKitWeb, :live_view
 
   def mount(_params, _session, socket) do
     {:ok, assign(socket, :page_title, "My Module")}
@@ -954,6 +954,38 @@ The ModuleRegistry validates at boot:
 
 These are warnings, not crashes, so a misconfigured module won't take down the app. But the symptom is that toggling the module works in the UI but permission checks use the wrong key.
 
+## PhoenixKit components
+
+Use `use PhoenixKitWeb, :live_view` in your LiveViews (not `use Phoenix.LiveView` directly). This imports PhoenixKit's core components, Gettext, layout config, and HTML helpers — giving you a consistent admin UI out of the box.
+
+Available components include:
+
+- `<.icon name="hero-*" />` — Heroicons
+- `<.button>`, `<.simple_form>`, `<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`
+- `<.flash>`, `<.header>`, `<.badge>`, `<.stat_card>`
+- `<.form_field_label>`, `<.form_field_error>`
+
+```elixir
+defmodule MyModule.Web.DashboardLive do
+  use PhoenixKitWeb, :live_view  # imports all PhoenixKit components
+
+  def render(assigns) do
+    ~H\"""
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h2 class="card-title">
+          <.icon name="hero-chart-bar" class="w-5 h-5" /> Dashboard
+        </h2>
+        <p class="text-base-content/70">Your module content here.</p>
+      </div>
+    </div>
+    \"""
+  end
+end
+```
+
+For controllers, use `use PhoenixKitWeb, :controller`.
+
 ## Component reuse
 
 As your module grows, extract shared UI into reusable function components. This keeps your LiveViews focused on business logic while shared presentation lives in dedicated component modules.
@@ -998,7 +1030,7 @@ Import the component module and call the function:
 
 ```elixir
 defmodule MyPhoenixKitModule.Web.IndexLive do
-  use Phoenix.LiveView
+  use PhoenixKitWeb, :live_view
 
   import MyPhoenixKitModule.Web.Components.ItemCard
 
@@ -1017,7 +1049,7 @@ The same component can be used across multiple LiveViews in your module:
 ```elixir
 # In another LiveView
 defmodule MyPhoenixKitModule.Web.SearchResultsLive do
-  use Phoenix.LiveView
+  use PhoenixKitWeb, :live_view
 
   import MyPhoenixKitModule.Web.Components.ItemCard
 

@@ -30,7 +30,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   - You can use `Phoenix.PubSub` for real-time updates just like any LiveView
   - For forms, use `Phoenix.Component.assign/2` and standard LiveView patterns
   """
-  use Phoenix.LiveView
+  use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Users.Auth.Scope
 
@@ -61,11 +61,21 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
           </p>
 
           <div class="flex flex-wrap gap-2 mt-4">
-            <div class="badge badge-success gap-1">Auto-discovery</div>
-            <div class="badge badge-success gap-1">Routing</div>
-            <div class="badge badge-success gap-1">Permissions</div>
-            <div class="badge badge-success gap-1">Admin layout</div>
-            <div class="badge badge-success gap-1">Sidebar tab</div>
+            <div class="badge badge-success gap-1">
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Auto-discovery
+            </div>
+            <div class="badge badge-success gap-1">
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Routing
+            </div>
+            <div class="badge badge-success gap-1">
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Permissions
+            </div>
+            <div class="badge badge-success gap-1">
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Admin layout
+            </div>
+            <div class="badge badge-success gap-1">
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Sidebar tab
+            </div>
           </div>
         </div>
       </div>
