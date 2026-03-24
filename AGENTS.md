@@ -48,6 +48,10 @@ This is a **library** (not a standalone Phoenix app) — there is no `config/` d
 - **JavaScript hooks**: must be inline `<script>` tags; register on `window.PhoenixKitHooks`
 - **LiveView assigns** available in admin pages: `@phoenix_kit_current_scope`, `@current_locale`, `@url_path`
 
+## Tailwind CSS Scanning
+
+Modules with templates using Tailwind classes must implement `css_sources/0` returning their OTP app name as an atom list (e.g., `[:my_module]`). PhoenixKit's installer (`mix phoenix_kit.install`) discovers these and adds `@source` directives to the parent's `app.css`. Without this, Tailwind purges the module's CSS classes. Headless modules without UI can skip this.
+
 ## Two Module Types
 
 - **Full-featured**: Admin tabs, routes, UI, settings (this template)

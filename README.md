@@ -24,6 +24,7 @@ Modules can be **full-featured** (admin pages, settings, routes) or **headless**
 - [Database conventions](#database-conventions)
 - [Testing](#testing)
 - [Verifying your module](#verifying-your-module)
+- [Tailwind CSS scanning for modules](#tailwind-css-scanning-for-modules)
 - [Troubleshooting](#troubleshooting)
 - [Publishing to Hex](#publishing-to-hex)
 
@@ -424,6 +425,7 @@ mix/
 | `children/0` | No | `[]` | Supervisor child specs |
 | `route_module/0` | No | `nil` | Custom route macros |
 | `migration_module/0` | No | `nil` | Versioned migration coordinator |
+| `css_sources/0` | No | `[]` | OTP app names for Tailwind CSS scanning |
 
 ## Common patterns
 
@@ -989,6 +991,8 @@ For controllers, use `use PhoenixKitWeb, :controller`.
 ## Component reuse
 
 As your module grows, extract shared UI into reusable function components. This keeps your LiveViews focused on business logic while shared presentation lives in dedicated component modules.
+
+> **Important:** If your components use Tailwind CSS classes, implement `css_sources/0` in your main module so the parent app's Tailwind build can scan your templates. See [Tailwind CSS scanning for modules](#tailwind-css-scanning-for-modules) for details.
 
 ### Extracting a shared component
 
@@ -2244,6 +2248,63 @@ After adding your module to the parent app and starting the server, check:
 4. **Call your functions** — verify your API works from `iex -S mix` or from another module
 
 The Admin role automatically gets access to new modules. Custom roles need the permission granted by an Owner or Admin.
+
+## Tailwind CSS scanning for modules
+
+When your module has templates with Tailwind CSS classes (inline `~H` sigils or `.heex` files), the parent app's Tailwind build needs to know where to scan for those classes. Without this, Tailwind will purge your module's CSS classes and your UI will break (elements hidden, styles missing).
+
+### How it works
+
+PhoenixKit's installer (`mix phoenix_kit.install`) automatically discovers plugin modules and adds `@source` directives to the parent app's `assets/css/app.css`. Each module declares which OTP app to scan via the `css_sources/0` callback.
+
+### Adding CSS source scanning to your module
+
+If your module uses Tailwind classes in its templates, implement `css_sources/0`:
+
+```elixir
+@impl PhoenixKit.Module
+def css_sources, do: [:my_phoenix_kit_module]
+```
+
+The return value is a list of OTP app name atoms. The installer resolves the correct file path automatically:
+
+- **Hex deps** → scans `deps/my_phoenix_kit_module/`
+- **Path deps** → scans the declared path from `mix.exs` (e.g. `../my_phoenix_kit_module`)
+
+After adding a new module with CSS sources, the user runs `mix phoenix_kit.install` and the installer adds the `@source` line to their `app.css`. This is idempotent — safe to run multiple times.
+
+### When you DON'T need this
+
+- **Headless modules** (no templates, no UI) — skip the callback, the default `[]` is fine
+- **Modules using only PhoenixKit's built-in components** — if all your Tailwind classes already exist in `phoenix_kit` or daisyUI, they're already scanned
+- **Modules with no custom Tailwind classes** — if you only use classes that are already present in `phoenix_kit`'s templates
+
+### When you DO need this
+
+- Your module has `~H` sigils or `.heex` templates with Tailwind responsive classes (`sm:block`, `md:grid-cols-2`, etc.)
+- You use Tailwind utility classes in module attributes or string literals that get rendered as HTML
+- You have custom CSS class combinations not used anywhere in `phoenix_kit`
+
+### Example: what the installer generates
+
+For a path dep (`path: "../phoenix_kit_publishing"`):
+```css
+@source "../../../phoenix_kit_publishing";
+```
+
+For a Hex dep:
+```css
+@source "../../deps/phoenix_kit_publishing";
+```
+
+### Troubleshooting CSS issues
+
+If elements are invisible or styles are missing after extracting a module:
+
+1. Check that `css_sources/0` is implemented and returns your app name
+2. Run `mix phoenix_kit.install` in the parent app
+3. Verify the `@source` line was added to `assets/css/app.css`
+4. Restart the Phoenix server (Tailwind watches for file changes, but the source config is read on startup)
 
 ## Troubleshooting
 
