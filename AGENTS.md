@@ -48,6 +48,25 @@ This is a **library** (not a standalone Phoenix app) — there is no `config/` d
 - **JavaScript hooks**: must be inline `<script>` tags; register on `window.PhoenixKitHooks`
 - **LiveView assigns** available in admin pages: `@phoenix_kit_current_scope`, `@current_locale`, `@url_path`
 
+## Routing: Single Page vs Multi-Page
+
+**Single admin page** (this template): The `live_view:` field on `admin_tabs/0` auto-generates the route. No route module needed.
+
+**Multiple admin pages**: You MUST use a route module. The `live_view:` field only generates ONE route per tab — it can't handle sub-pages like `/admin/your-module/new` or `/admin/your-module/:id/edit`. Steps:
+
+1. Uncomment the routes in `lib/phoenix_kit_hello_world/routes.ex`
+2. Uncomment `route_module/0` in the main module
+3. Remove the `live_view:` field from `admin_tabs/0` (the route module takes over)
+4. Define ALL admin LiveView routes in both `admin_locale_routes/0` AND `admin_routes/0`
+
+Both functions define the same routes — one for localized paths (`:locale` prefix) and one for non-localized. Every route needs a unique `:as` name (use `_localized` suffix).
+
+**Catch-all public routes** (`/:slug`, `/:group/*path`): MUST go in `public_routes/1`, NOT `generate/1`. Routes in `generate/1` are placed early and will intercept `/admin/*` paths.
+
+## Tailwind CSS Scanning
+
+Modules with templates using Tailwind classes must implement `css_sources/0` returning their OTP app name as an atom list (e.g., `[:my_module]`). PhoenixKit's installer (`mix phoenix_kit.install`) discovers these and adds `@source` directives to the parent's `app.css`. Without this, Tailwind purges the module's CSS classes. Headless modules without UI can skip this.
+
 ## Two Module Types
 
 - **Full-featured**: Admin tabs, routes, UI, settings (this template)

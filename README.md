@@ -24,6 +24,7 @@ Modules can be **full-featured** (admin pages, settings, routes) or **headless**
 - [Database conventions](#database-conventions)
 - [Testing](#testing)
 - [Verifying your module](#verifying-your-module)
+- [Tailwind CSS scanning for modules](#tailwind-css-scanning-for-modules)
 - [Troubleshooting](#troubleshooting)
 - [Publishing to Hex](#publishing-to-hex)
 
@@ -424,6 +425,7 @@ mix/
 | `children/0` | No | `[]` | Supervisor child specs |
 | `route_module/0` | No | `nil` | Custom route macros |
 | `migration_module/0` | No | `nil` | Versioned migration coordinator |
+| `css_sources/0` | No | `[]` | OTP app names for Tailwind CSS scanning |
 
 ## Common patterns
 
@@ -645,6 +647,32 @@ live "/admin/my-module", MyPhoenixKitModule.Web.IndexLive, :index
 ```
 
 inside the admin `live_session` with the admin layout applied. This happens at compile time in `integration.ex`. After adding a new external module, the parent app needs a recompile (`mix deps.compile phoenix_kit --force` or restart the server).
+
+### Admin layout is auto-applied
+
+PhoenixKit's `on_mount` hook detects external plugin LiveViews and automatically applies the admin layout (sidebar, header, theme). **Do not** wrap your templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout>` — this causes double sidebars. Just render your inner content directly.
+
+This only applies to admin LiveViews. Public controller templates (rendered via `Phoenix.Controller.render/2`) still need the wrapper if they use the app layout.
+
+### Route module for complex routes
+
+For simple modules, the `live_view` field in `admin_tabs/0` is sufficient — PhoenixKit auto-generates the admin route. For modules with complex routing needs (multiple admin pages, public-facing routes, custom controllers), implement `route_module/0`:
+
+```elixir
+@impl PhoenixKit.Module
+def route_module, do: MyPhoenixKitModule.Routes
+```
+
+Your route module can implement these functions:
+
+| Function | Position in router | Use for |
+|---|---|---|
+| `admin_locale_routes/0` | Inside admin live_session (localized) | Complex admin LiveView routes |
+| `admin_routes/0` | Inside admin live_session (non-localized) | Same, for non-locale-prefixed paths |
+| `generate/1` | Early, before localized routes | Non-catch-all public routes |
+| `public_routes/1` | **Last**, after all other routes | Catch-all public routes (`/:group/*path`) |
+
+**Route ordering matters.** If your module has catch-all routes like `/:group` or `/:group/*path`, they **must** go in `public_routes/1` — not `generate/1`. Routes in `generate/1` are placed early and will intercept admin paths, breaking the entire admin panel. `public_routes/1` is placed last, after all admin and localized routes, so catch-alls only match when nothing else does.
 
 ### Assigns available in admin LiveViews
 
@@ -989,6 +1017,8 @@ For controllers, use `use PhoenixKitWeb, :controller`.
 ## Component reuse
 
 As your module grows, extract shared UI into reusable function components. This keeps your LiveViews focused on business logic while shared presentation lives in dedicated component modules.
+
+> **Important:** If your components use Tailwind CSS classes, implement `css_sources/0` in your main module so the parent app's Tailwind build can scan your templates. See [Tailwind CSS scanning for modules](#tailwind-css-scanning-for-modules) for details.
 
 ### Extracting a shared component
 
@@ -2245,6 +2275,63 @@ After adding your module to the parent app and starting the server, check:
 
 The Admin role automatically gets access to new modules. Custom roles need the permission granted by an Owner or Admin.
 
+## Tailwind CSS scanning for modules
+
+When your module has templates with Tailwind CSS classes (inline `~H` sigils or `.heex` files), the parent app's Tailwind build needs to know where to scan for those classes. Without this, Tailwind will purge your module's CSS classes and your UI will break (elements hidden, styles missing).
+
+### How it works
+
+PhoenixKit's installer (`mix phoenix_kit.install`) automatically discovers plugin modules and adds `@source` directives to the parent app's `assets/css/app.css`. Each module declares which OTP app to scan via the `css_sources/0` callback.
+
+### Adding CSS source scanning to your module
+
+If your module uses Tailwind classes in its templates, implement `css_sources/0`:
+
+```elixir
+@impl PhoenixKit.Module
+def css_sources, do: [:my_phoenix_kit_module]
+```
+
+The return value is a list of OTP app name atoms. The installer resolves the correct file path automatically:
+
+- **Hex deps** → scans `deps/my_phoenix_kit_module/`
+- **Path deps** → scans the declared path from `mix.exs` (e.g. `../my_phoenix_kit_module`)
+
+After adding a new module with CSS sources, the user runs `mix phoenix_kit.install` and the installer adds the `@source` line to their `app.css`. This is idempotent — safe to run multiple times.
+
+### When you DON'T need this
+
+- **Headless modules** (no templates, no UI) — skip the callback, the default `[]` is fine
+- **Modules using only PhoenixKit's built-in components** — if all your Tailwind classes already exist in `phoenix_kit` or daisyUI, they're already scanned
+- **Modules with no custom Tailwind classes** — if you only use classes that are already present in `phoenix_kit`'s templates
+
+### When you DO need this
+
+- Your module has `~H` sigils or `.heex` templates with Tailwind responsive classes (`sm:block`, `md:grid-cols-2`, etc.)
+- You use Tailwind utility classes in module attributes or string literals that get rendered as HTML
+- You have custom CSS class combinations not used anywhere in `phoenix_kit`
+
+### Example: what the installer generates
+
+For a path dep (`path: "../phoenix_kit_publishing"`):
+```css
+@source "../../../phoenix_kit_publishing";
+```
+
+For a Hex dep:
+```css
+@source "../../deps/phoenix_kit_publishing";
+```
+
+### Troubleshooting CSS issues
+
+If elements are invisible or styles are missing after extracting a module:
+
+1. Check that `css_sources/0` is implemented and returns your app name
+2. Run `mix phoenix_kit.install` in the parent app
+3. Verify the `@source` line was added to `assets/css/app.css`
+4. Restart the Phoenix server (Tailwind watches for file changes, but the source config is read on startup)
+
 ## Troubleshooting
 
 ### Module doesn't show up in the admin sidebar
@@ -2293,6 +2380,17 @@ Make sure you're using `update_boolean_setting_with_module/3` (not `update_setti
 2. **Check `window.PhoenixKitHooks`** — open browser console, verify your hook is registered
 3. **Check element has `phx-hook`** — must match the hook name exactly
 4. **Check element has a unique `id`** — required for hooks to work
+
+### Changes not taking effect
+
+Stale compiled `.beam` files can persist old module versions. When changes aren't showing up:
+
+1. **Force recompile your dep** — `mix deps.compile my_module --force` from the parent app
+2. **Full clean rebuild** — `mix deps.clean my_module && mix deps.get && mix deps.compile my_module --force`
+3. **Restart the server** — the dev reloader doesn't watch deps for changes
+4. **Recompile the parent too** — `mix compile --force` (needed when routes or callbacks change)
+
+This is especially common when debugging route registration, CSS scanning, or callback changes.
 
 ### Base64 JS not updating
 
