@@ -67,6 +67,19 @@ Both functions define the same routes — one for localized paths (`:locale` pre
 
 Modules with templates using Tailwind classes must implement `css_sources/0` returning their OTP app name as an atom list (e.g., `[:my_module]`). PhoenixKit's installer (`mix phoenix_kit.install`) discovers these and adds `@source` directives to the parent's `app.css`. Without this, Tailwind purges the module's CSS classes. Headless modules without UI can skip this.
 
+## PR Reviews
+
+Store review files in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/`.
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `README.md` | Required | PR summary: goal, what changed, why, how |
+| `{AGENT}_REVIEW.md` | Optional | Review feedback, issues found, analysis |
+| `FOLLOW_UP.md` | Optional | Post-merge issues, discovered bugs, refactor notes |
+| `CONTEXT.md` | Optional | Alternatives considered, trade-offs, deep dive |
+
+Directory naming: `{pr_number}-{short-slug}/` (e.g., `6-routing-scaffold-css-scanning`). Review file naming: `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`, etc.
+
 ## Two Module Types
 
 - **Full-featured**: Admin tabs, routes, UI, settings (this template)
