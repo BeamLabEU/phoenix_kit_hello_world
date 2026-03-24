@@ -648,6 +648,32 @@ live "/admin/my-module", MyPhoenixKitModule.Web.IndexLive, :index
 
 inside the admin `live_session` with the admin layout applied. This happens at compile time in `integration.ex`. After adding a new external module, the parent app needs a recompile (`mix deps.compile phoenix_kit --force` or restart the server).
 
+### Admin layout is auto-applied
+
+PhoenixKit's `on_mount` hook detects external plugin LiveViews and automatically applies the admin layout (sidebar, header, theme). **Do not** wrap your templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout>` — this causes double sidebars. Just render your inner content directly.
+
+This only applies to admin LiveViews. Public controller templates (rendered via `Phoenix.Controller.render/2`) still need the wrapper if they use the app layout.
+
+### Route module for complex routes
+
+For simple modules, the `live_view` field in `admin_tabs/0` is sufficient — PhoenixKit auto-generates the admin route. For modules with complex routing needs (multiple admin pages, public-facing routes, custom controllers), implement `route_module/0`:
+
+```elixir
+@impl PhoenixKit.Module
+def route_module, do: MyPhoenixKitModule.Routes
+```
+
+Your route module can implement these functions:
+
+| Function | Position in router | Use for |
+|---|---|---|
+| `admin_locale_routes/0` | Inside admin live_session (localized) | Complex admin LiveView routes |
+| `admin_routes/0` | Inside admin live_session (non-localized) | Same, for non-locale-prefixed paths |
+| `generate/1` | Early, before localized routes | Non-catch-all public routes |
+| `public_routes/1` | **Last**, after all other routes | Catch-all public routes (`/:group/*path`) |
+
+**Route ordering matters.** If your module has catch-all routes like `/:group` or `/:group/*path`, they **must** go in `public_routes/1` — not `generate/1`. Routes in `generate/1` are placed early and will intercept admin paths, breaking the entire admin panel. `public_routes/1` is placed last, after all admin and localized routes, so catch-alls only match when nothing else does.
+
 ### Assigns available in admin LiveViews
 
 PhoenixKit's `on_mount` hooks inject these assigns into every admin LiveView:
@@ -2354,6 +2380,17 @@ Make sure you're using `update_boolean_setting_with_module/3` (not `update_setti
 2. **Check `window.PhoenixKitHooks`** — open browser console, verify your hook is registered
 3. **Check element has `phx-hook`** — must match the hook name exactly
 4. **Check element has a unique `id`** — required for hooks to work
+
+### Changes not taking effect
+
+Stale compiled `.beam` files can persist old module versions. When changes aren't showing up:
+
+1. **Force recompile your dep** — `mix deps.compile my_module --force` from the parent app
+2. **Full clean rebuild** — `mix deps.clean my_module && mix deps.get && mix deps.compile my_module --force`
+3. **Restart the server** — the dev reloader doesn't watch deps for changes
+4. **Recompile the parent too** — `mix compile --force` (needed when routes or callbacks change)
+
+This is especially common when debugging route registration, CSS scanning, or callback changes.
 
 ### Base64 JS not updating
 
