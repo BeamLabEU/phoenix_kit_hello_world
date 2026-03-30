@@ -63,6 +63,16 @@ Both functions define the same routes — one for localized paths (`:locale` pre
 
 **Catch-all public routes** (`/:slug`, `/:group/*path`): MUST go in `public_routes/1`, NOT `generate/1`. Routes in `generate/1` are placed early and will intercept `/admin/*` paths.
 
+### How route discovery works
+
+Module routes are auto-discovered at compile time — no manual registration needed:
+
+1. `use PhoenixKit.Module` persists a `@phoenix_kit_module` marker in the `.beam` file
+2. PhoenixKit's `ModuleDiscovery` scans beam files of deps that depend on `:phoenix_kit`
+3. For each discovered module, it calls `route_module/0` to get the route module
+4. Admin routes (`admin_routes/0`, `admin_locale_routes/0`) and public routes (`generate/1`, `public_routes/1`) are compiled into the host router via the `phoenix_kit_routes()` macro
+5. The host router auto-recompiles when module deps are added or removed (via `__mix_recompile__?/0` hash comparison)
+
 ## Tailwind CSS Scanning
 
 Modules with templates using Tailwind classes must implement `css_sources/0` returning their OTP app name as an atom list (e.g., `[:my_module]`). PhoenixKit's installer (`mix phoenix_kit.install`) discovers these and adds `@source` directives to the parent's `app.css`. Without this, Tailwind purges the module's CSS classes. Headless modules without UI can skip this.
