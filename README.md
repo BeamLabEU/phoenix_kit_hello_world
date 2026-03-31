@@ -30,7 +30,7 @@ Modules can be **full-featured** (admin pages, settings, routes) or **headless**
 
 ## What this demonstrates
 
-- Zero-config auto-discovery (just add the dep, no config line needed)
+- Zero-config auto-discovery (just add the dep and `:phoenix_kit` to `extra_applications`)
 - Admin sidebar tab with automatic routing
 - Enable/disable toggle on the admin Modules page
 - Permission key in the roles/permissions matrix
@@ -118,6 +118,13 @@ def project do
   ]
 end
 
+# Required: :phoenix_kit must be in extra_applications for auto-discovery
+def application do
+  [
+    extra_applications: [:logger, :phoenix_kit]
+  ]
+end
+
 defp deps do
   [
     {:phoenix_kit, "~> 1.7"},
@@ -125,6 +132,8 @@ defp deps do
   ]
 end
 ```
+
+> **Important:** `:phoenix_kit` must be listed in `extra_applications`. Without it, `PhoenixKit.ModuleDiscovery` won't find your module and routes will return 404.
 
 ### 3. Implement the behaviour
 
