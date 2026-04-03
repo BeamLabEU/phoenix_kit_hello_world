@@ -8,26 +8,42 @@ PhoenixKit plugin module template — a minimal, production-ready example for bu
 
 ## Common Commands
 
+### Setup & Dependencies
+
 ```bash
-mix deps.get          # Install dependencies
-mix test              # Run all tests
-mix test test/phoenix_kit_hello_world_test.exs  # Run specific test file
-mix test --only tag   # Run tests matching a tag
-mix format            # Format code (imports Phoenix LiveView rules)
-mix credo             # Static analysis / linting
-mix dialyzer          # Type checking
-mix docs              # Generate documentation
+mix deps.get                # Install dependencies
 ```
+
+### Testing
+
+```bash
+mix test                        # Run all tests
+mix test test/phoenix_kit_hello_world_test.exs  # Run specific test file
+mix test test/file_test.exs:42  # Run specific test by line
+```
+
+### Code Quality
+
+```bash
+mix format                  # Format code (imports Phoenix LiveView rules)
+mix credo --strict          # Lint / code quality (strict mode)
+mix dialyzer                # Static type checking
+mix precommit               # compile + format + credo --strict + dialyzer
+mix quality                 # format + credo --strict + dialyzer
+mix quality.ci              # format --check-formatted + credo --strict + dialyzer
+mix docs                    # Generate documentation
+```
+
+## Dependencies
+
+This is a **library** (not a standalone Phoenix app) — there is no `config/` directory, no endpoint, no router. The full dependency chain:
+
+- `phoenix_kit` (path: `"../phoenix_kit"`) — provides Module behaviour, Settings, RepoHelper, Dashboard tabs
+- `phoenix_live_view` — web framework (LiveView UI)
 
 ## Architecture
 
-This is a **library** (not a standalone Phoenix app) — there is no `config/` directory, no endpoint, no router.
-
-### Key Modules
-
-- **`PhoenixKitHelloWorld`** (`lib/phoenix_kit_hello_world.ex`) — Main module implementing `PhoenixKit.Module` behaviour. Declares required callbacks (`module_key`, `module_name`, `enabled?`, `enable_system`, `disable_system`) and optional ones (`admin_tabs`, `permission_metadata`, `get_config`, etc.).
-
-- **`PhoenixKitHelloWorld.Web.HelloLive`** (`lib/phoenix_kit_hello_world/web/hello_live.ex`) — LiveView page for the admin panel. PhoenixKit wraps it in the admin layout automatically.
+This is a **PhoenixKit module** that implements the `PhoenixKit.Module` behaviour. It depends on the host PhoenixKit app for Repo, Endpoint, and Settings.
 
 ### How It Works
 
@@ -37,6 +53,26 @@ This is a **library** (not a standalone Phoenix app) — there is no `config/` d
 4. Settings are persisted via `PhoenixKit.Settings` API (DB-backed in parent app)
 5. Permissions are declared via `permission_metadata/0` and checked via `Scope.has_module_access?/2`
 
+### Key Modules
+
+- **`PhoenixKitHelloWorld`** (`lib/phoenix_kit_hello_world.ex`) — Main module implementing `PhoenixKit.Module` behaviour. Declares required callbacks (`module_key`, `module_name`, `enabled?`, `enable_system`, `disable_system`) and optional ones (`admin_tabs`, `permission_metadata`, `get_config`, etc.).
+
+- **`PhoenixKitHelloWorld.Web.HelloLive`** (`lib/phoenix_kit_hello_world/web/hello_live.ex`) — LiveView page for the admin panel. PhoenixKit wraps it in the admin layout automatically.
+
+### Settings Keys
+
+`hello_world_enabled`
+
+### File Layout
+
+```
+lib/phoenix_kit_hello_world.ex                    # Main module (PhoenixKit.Module behaviour)
+lib/phoenix_kit_hello_world/
+├── routes.ex                                    # Route module scaffold (for multi-page modules)
+└── web/
+    └── hello_live.ex                            # Admin LiveView page
+```
+
 ## Critical Conventions
 
 - **Module key** must be consistent across all callbacks: lowercase with underscores (`"hello_world"`)
@@ -44,9 +80,13 @@ This is a **library** (not a standalone Phoenix app) — there is no `config/` d
 - **URL paths**: use hyphens, not underscores (`"hello-world"`)
 - **Navigation paths**: always use `PhoenixKit.Utils.Routes.path/1`, never relative paths
 - **`enabled?/0`**: must rescue errors and return `false` as fallback (DB may not be available)
-- **LiveViews use `PhoenixKitWeb` macros** — use `use PhoenixKitWeb, :live_view` (not `use Phoenix.LiveView` directly). This imports PhoenixKit's core components (`<.icon>`, `<.button>`, etc.), Gettext, layout config, and HTML helpers. Use PhoenixKit components for consistent admin UI.
+- **LiveViews**: use `use PhoenixKitWeb, :live_view` which imports PhoenixKit's core components (`<.icon>`, `<.button>`, etc.), Gettext, layout config, and HTML helpers. External modules that use `use Phoenix.LiveView` directly must import helpers explicitly instead.
 - **JavaScript hooks**: must be inline `<script>` tags; register on `window.PhoenixKitHooks`
 - **LiveView assigns** available in admin pages: `@phoenix_kit_current_scope`, `@current_locale`, `@url_path`
+
+### Commit Message Rules
+
+Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`.
 
 ## Routing: Single Page vs Multi-Page
 
@@ -75,19 +115,36 @@ Module routes are auto-discovered at compile time — no manual registration nee
 
 ## Tailwind CSS Scanning
 
-Modules with templates using Tailwind classes must implement `css_sources/0` returning their OTP app name as an atom list (e.g., `[:my_module]`). CSS source discovery is **automatic at compile time** — the `:phoenix_kit_css_sources` compiler scans all discovered modules, calls `css_sources/0`, and writes `assets/css/_phoenix_kit_sources.css` with the correct `@source` directives. The parent app's `app.css` imports this generated file:
+Modules with templates using Tailwind classes must implement `css_sources/0` returning their OTP app name as an atom list (e.g., `[:phoenix_kit_hello_world]`). CSS source discovery is **automatic at compile time** — the `:phoenix_kit_css_sources` compiler scans all discovered modules and writes `assets/css/_phoenix_kit_sources.css`. The parent app's `app.css` imports this generated file.
 
-```css
-@import "./_phoenix_kit_sources.css";
+## Database & Migrations
+
+This template module has no database tables. Modules that need DB tables should have their migrations created in the parent `phoenix_kit` project as a new versioned migration (e.g., `V90`).
+
+## Testing
+
+### Running tests
+
+```bash
+mix test                                        # All tests
+mix test test/phoenix_kit_hello_world_test.exs  # Module behaviour tests
 ```
 
-**Setup (one-time, handled by `mix phoenix_kit.install`):**
-1. Add `:phoenix_kit_css_sources` to the `compilers:` list in `mix.exs` (before `:phoenix_live_view`)
-2. Add `@import "./_phoenix_kit_sources.css";` to `app.css`
+### Version compliance test
 
-After setup, adding or removing modules with `css_sources/0` is zero-config — the compiler regenerates the file on each compilation. Headless modules without UI can skip implementing `css_sources/0`.
+The test file verifies `module_key/0`, `module_name/0`, `version/0`, `permission_metadata/0`, `admin_tabs/0`, and `css_sources/0`.
 
 ## Versioning & Releases
+
+This project follows [Semantic Versioning](https://semver.org/).
+
+### Version locations
+
+The version must be updated in **three places** when bumping:
+
+1. `mix.exs` — `@version` module attribute
+2. `lib/phoenix_kit_hello_world.ex` — `def version, do: "x.y.z"`
+3. `test/phoenix_kit_hello_world_test.exs` — version compliance test
 
 ### Tagging & GitHub releases
 
@@ -98,7 +155,7 @@ git tag 0.1.0
 git push origin 0.1.0
 ```
 
-GitHub releases are created with `gh release create` using the tag as the release name. The title format is `<version> - <date>`, and the body comes from the corresponding `CHANGELOG.md` section:
+GitHub releases are created with `gh release create`:
 
 ```bash
 gh release create 0.1.0 \
@@ -120,13 +177,18 @@ gh release create 0.1.0 \
 
 ## Pull Requests
 
-### Commit Message Rules
-
-Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`.
-
 ### PR Reviews
 
-PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
+PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`).
+
+Severity levels for review findings:
+
+- `BUG - CRITICAL` — Will cause crashes, data loss, or security issues
+- `BUG - HIGH` — Incorrect behavior that affects users
+- `BUG - MEDIUM` — Edge cases, minor incorrect behavior
+- `IMPROVEMENT - HIGH` — Significant code quality or performance issue
+- `IMPROVEMENT - MEDIUM` — Better patterns or maintainability
+- `NITPICK` — Style, naming, minor suggestions
 
 ## External Dependencies
 
