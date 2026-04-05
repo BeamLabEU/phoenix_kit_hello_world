@@ -102,7 +102,7 @@ defmodule PhoenixKitHelloWorldTest do
     test "returns a version string" do
       version = PhoenixKitHelloWorld.version()
       assert is_binary(version)
-      assert version == "0.1.0"
+      assert version == "0.1.2"
     end
   end
 
