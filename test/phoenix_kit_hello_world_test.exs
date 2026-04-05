@@ -128,5 +128,13 @@ defmodule PhoenixKitHelloWorldTest do
     test "route_module/0 returns nil" do
       assert PhoenixKitHelloWorld.route_module() == nil
     end
+
+    test "required_integrations/0 returns empty list" do
+      assert PhoenixKitHelloWorld.required_integrations() == []
+    end
+
+    test "integration_providers/0 returns empty list" do
+      assert PhoenixKitHelloWorld.integration_providers() == []
+    end
   end
 end

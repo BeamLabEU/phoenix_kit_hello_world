@@ -69,6 +69,8 @@ defmodule PhoenixKitHelloWorld do
   | `route_module/0`      | No        | Module providing custom route macros               |
   | `user_dashboard_tabs/0` | No     | Tabs for the user-facing dashboard                 |
   | `migration_module/0`  | No        | Versioned migration coordinator module             |
+  | `required_integrations/0` | No   | Integration provider keys this module needs        |
+  | `integration_providers/0` | No   | Custom provider definitions to contribute          |
   """
 
   use PhoenixKit.Module
@@ -208,6 +210,8 @@ defmodule PhoenixKitHelloWorld do
   #   def children, do: []
   #   def route_module, do: nil          # see Route module section above
   #   def migration_module, do: nil
+  #   def required_integrations, do: []  # e.g., ["google"] or ["openrouter"]
+  #   def integration_providers, do: []  # custom provider definitions
   #
   # See the PhoenixKit.Module docs for details on each.
   # ===========================================================================
