@@ -2343,6 +2343,27 @@ If elements are invisible or styles are missing after extracting a module:
 
 ## Troubleshooting
 
+### Sidebar disappears / socket crashes when clicking into my admin page
+
+**Symptoms:**
+
+- The admin layout (sidebar, header) is missing on your custom admin page, but shows up on other PhoenixKit admin pages
+- Navigating from another admin page logs `navigate event failed because you are redirecting across live_sessions. A full page reload will be performed instead` and the WebSocket reconnects
+
+**Cause:** You hand-registered a `live` route for a plugin LiveView in your parent app's `router.ex`. That route ends up in a different (or unnamed) `live_session` than PhoenixKit's `:phoenix_kit_admin`. Two things break:
+
+1. The admin layout is applied by the `:phoenix_kit_ensure_admin` on_mount hook, which only runs inside `live_session :phoenix_kit_admin`. Your route never hits it.
+2. Phoenix LiveView forbids `push_navigate` across `live_session` boundaries — the socket is torn down and a full page reload runs instead.
+
+**Fix:** Remove the hand-written route and register your page through PhoenixKit's tab system so the route is injected into `:phoenix_kit_admin` automatically.
+
+- If your page is part of a plugin module (like `phoenix_kit_entities` or `phoenix_kit_publishing`), its routes are **already** auto-discovered — just delete your manual routes and rely on `phoenix_kit_routes()` in `router.ex`.
+- If your page is in your parent app, register it via `config :phoenix_kit, :admin_dashboard_tabs, [...]` with a `live_view: {MyAppWeb.SomeLive, :action}` field. See the [Custom Admin Pages guide](../phoenix_kit/guides/custom-admin-pages.md) (`phoenix_kit/guides/custom-admin-pages.md` in the monorepo).
+
+**Do not** try to work around this by creating your own `live_session :phoenix_kit_admin` block — Phoenix raises at compile time on duplicate live_session names. There is exactly one, and PhoenixKit owns it.
+
+**Do not** put `:phoenix_kit_ensure_admin` in a `pipe_through` list — it is an `on_mount` hook, not a Plug, and has no effect as a pipeline step.
+
 ### Module doesn't show up in the admin sidebar
 
 1. **Check the dep is installed** — run `mix deps.get` and verify no errors

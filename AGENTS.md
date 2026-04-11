@@ -142,16 +142,35 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`.
 
 ## Routing: Single Page vs Multi-Page
 
-**Multi-tab via `live_view:` on each tab** (this template): Each tab in `admin_tabs/0` sets its own `live_view:` field, and PhoenixKit auto-generates a route per tab. This works for a parent tab + several subtabs that each map to a different LiveView, as long as none of them have dynamic path segments (`:id`, `:uuid`, etc.). The showcase uses this pattern with an Overview, Events, and Components subtab.
+> ⚠️ **Never hand-register plugin LiveView routes in the parent app's `router.ex`.** PhoenixKit injects module routes into its own `live_session :phoenix_kit_admin` automatically. A hand-written route sits outside that session, which (a) loses the admin layout — `:phoenix_kit_ensure_admin` only applies it inside the session — and (b) crashes the socket on navigation between admin pages (`navigate event failed because you are redirecting across live_sessions`). You cannot work around it by redeclaring `live_session :phoenix_kit_admin` in your router: Phoenix raises on duplicate names. Use `live_view:` on a tab, or a plugin route module. Also note that `:phoenix_kit_ensure_admin` is an **on_mount hook, not a Plug** — it does nothing in `pipe_through`.
 
-**Route module pattern**: You MUST use a route module when you need sub-pages with dynamic segments like `/admin/your-module/new` or `/admin/your-module/:id/edit`. The `live_view:` field only generates ONE static route per tab. Steps:
+**Multi-tab via `live_view:` on each tab** (this template): Each tab in `admin_tabs/0` sets its own `live_view:` field, and PhoenixKit auto-generates a route per tab via `tab_to_route/1` in `phoenix_kit`'s `integration.ex`. **Dynamic path segments are fully supported** — the `path` string is spliced verbatim into the generated `live` route, so `path: "hello-world/:id/edit"` works exactly as you'd expect. The showcase uses this pattern with an Overview, Events, and Components subtab.
+
+For CRUD sub-pages that shouldn't appear in the sidebar (like a new/edit form), add extra tabs with `visible: false` and `parent: :your_parent_tab_id`:
+
+```elixir
+%Tab{
+  id: :admin_hello_world_edit,
+  label: "Edit Hello",
+  path: "hello-world/:id/edit",
+  parent: :admin_hello_world,
+  visible: false,
+  live_view: {PhoenixKitHelloWorld.Web.HelloFormLive, :edit}
+}
+```
+
+See `phoenix_kit_posts/lib/phoenix_kit_posts.ex:213` and `phoenix_kit_catalogue/lib/phoenix_kit_catalogue.ex:198` for real-world examples of this hidden-tab pattern with dynamic segments.
+
+**Route module pattern**: Use a route module (instead of or alongside `admin_tabs/0`) when the tab-based approach isn't expressive enough for your admin LiveView routes — specifically when you want to declare many `live` routes without enumerating each as a Tab, when you need separate localized/non-localized variants with distinct `:as` aliases, or when you want to mix the two patterns (see `phoenix_kit_ai` for a hybrid reference). Steps:
 
 1. Uncomment the routes in `lib/phoenix_kit_hello_world/routes.ex`
 2. Uncomment `route_module/0` in the main module
-3. Remove the `live_view:` field from `admin_tabs/0` (the route module takes over)
-4. Define ALL admin LiveView routes in both `admin_locale_routes/0` AND `admin_routes/0`
+3. Keep or remove the `live_view:` field on `admin_tabs/0` entries as needed — the route module and tab-based routes coexist and both get compiled into `:phoenix_kit_admin`
+4. Define admin LiveView routes in both `admin_locale_routes/0` AND `admin_routes/0`
 
-Both functions define the same routes — one for localized paths (`:locale` prefix) and one for non-localized. Every route needs a unique `:as` name (use `_localized` suffix).
+Both functions define the same routes — one for localized paths (`:locale` prefix) and one for non-localized. Every route needs a unique `:as` name (use `_localized` suffix on the localized side).
+
+> **`admin_routes/0` and `admin_locale_routes/0` can only contain `live` declarations.** Their quoted blocks get spliced directly inside Phoenix's `live_session :phoenix_kit_admin do … end` block by `compile_external_admin_routes/1` in `phoenix_kit/lib/phoenix_kit_web/integration.ex:481`, and Phoenix's `live_session` macro rejects controllers (`get`, `post`, …), `forward`, nested `scope`, and `pipe_through` at compile time. For non-LiveView module routes (controllers, API endpoints, WebSocket forwards, catch-all public pages) use `generate/1` or `public_routes/1` on the same route module instead — they splice into different router locations outside any `live_session`. See `phoenix_kit_sync/lib/phoenix_kit_sync/routes.ex` for the controller/`forward` pattern in `generate/1`.
 
 **Catch-all public routes** (`/:slug`, `/:group/*path`): MUST go in `public_routes/1`, NOT `generate/1`. Routes in `generate/1` are placed early and will intercept `/admin/*` paths.
 
