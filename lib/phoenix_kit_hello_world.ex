@@ -126,7 +126,7 @@ defmodule PhoenixKitHelloWorld do
 
   @impl PhoenixKit.Module
   @doc "Version string. Shown on the admin Modules page."
-  def version, do: "0.1.2"
+  def version, do: "0.1.3"
 
   @impl PhoenixKit.Module
   @doc """
@@ -167,6 +167,8 @@ defmodule PhoenixKitHelloWorld do
   """
   def admin_tabs do
     [
+      # Parent tab — match: :prefix keeps subtabs highlighted on any /hello-world/* page.
+      # subtab_display: :when_active shows subtabs only when this module is active.
       %Tab{
         id: :admin_hello_world,
         label: "Hello World",
@@ -177,7 +179,44 @@ defmodule PhoenixKitHelloWorld do
         permission: module_key(),
         match: :prefix,
         group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false,
         live_view: {PhoenixKitHelloWorld.Web.HelloLive, :index}
+      },
+      # Subtabs — Overview (same path as parent), Events, Components
+      %Tab{
+        id: :admin_hello_world_overview,
+        label: "Overview",
+        icon: "hero-hand-raised",
+        path: "hello-world",
+        priority: 641,
+        level: :admin,
+        permission: module_key(),
+        match: :exact,
+        parent: :admin_hello_world,
+        live_view: {PhoenixKitHelloWorld.Web.HelloLive, :index}
+      },
+      %Tab{
+        id: :admin_hello_world_events,
+        label: "Events",
+        icon: "hero-clock",
+        path: "hello-world/events",
+        priority: 642,
+        level: :admin,
+        permission: module_key(),
+        parent: :admin_hello_world,
+        live_view: {PhoenixKitHelloWorld.Web.EventsLive, :index}
+      },
+      %Tab{
+        id: :admin_hello_world_components,
+        label: "Components",
+        icon: "hero-squares-2x2",
+        path: "hello-world/components",
+        priority: 643,
+        level: :admin,
+        permission: module_key(),
+        parent: :admin_hello_world,
+        live_view: {PhoenixKitHelloWorld.Web.ComponentsLive, :index}
       }
     ]
   end

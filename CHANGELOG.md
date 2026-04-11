@@ -1,3 +1,17 @@
+## 0.1.3 - 2026-04-11
+
+### Added
+- Add Events subtab with infinite-scroll activity feed filtered to `module: "hello_world"` — universal pattern that works as a drop-in for any module
+- Add Components subtab showcasing commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets
+- Add "Log demo event" button on Overview page demonstrating the canonical activity logging pattern with `Code.ensure_loaded?/1` guard and rescue handling
+- Add `PhoenixKitHelloWorld.Paths` module for centralized path helpers
+
+### Changed
+- Restructure `admin_tabs/0` to include parent tab + three subtabs (Overview, Events, Components)
+- Bump `phoenix_live_view` dep from `~> 1.0` to `~> 1.1` for consistency with other PhoenixKit modules
+- Update `HelloLive` with navigation to the new subtabs and activity logging demo
+- Update AGENTS.md with activity logging pattern documentation and expanded file layout
+
 ## 0.1.2 - 2026-04-05
 
 ### Added

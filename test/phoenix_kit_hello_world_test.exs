@@ -69,32 +69,67 @@ defmodule PhoenixKitHelloWorldTest do
   end
 
   describe "admin_tabs/0" do
-    test "returns a list of Tab structs" do
+    test "returns a non-empty list of Tab structs" do
       tabs = PhoenixKitHelloWorld.admin_tabs()
       assert is_list(tabs)
-      assert length(tabs) == 1
+      assert length(tabs) >= 4
     end
 
-    test "tab has all required fields" do
-      [tab] = PhoenixKitHelloWorld.admin_tabs()
-      assert tab.id == :admin_hello_world
-      assert tab.label == "Hello World"
+    test "main tab has all required fields" do
+      [main | _] = PhoenixKitHelloWorld.admin_tabs()
+      assert main.id == :admin_hello_world
+      assert main.label == "Hello World"
       # Tab paths can be relative ("hello-world") or absolute ("/admin/hello-world").
       # PhoenixKit's Tab.resolve_path/2 prepends /admin/ for relative paths at registration.
-      assert is_binary(tab.path)
-      assert tab.level == :admin
-      assert tab.permission == PhoenixKitHelloWorld.module_key()
-      assert tab.group == :admin_modules
+      assert is_binary(main.path)
+      assert main.level == :admin
+      assert main.permission == PhoenixKitHelloWorld.module_key()
+      assert main.group == :admin_modules
     end
 
-    test "tab has live_view for route generation" do
-      [tab] = PhoenixKitHelloWorld.admin_tabs()
-      assert {PhoenixKitHelloWorld.Web.HelloLive, :index} = tab.live_view
+    test "main tab has live_view for route generation" do
+      [main | _] = PhoenixKitHelloWorld.admin_tabs()
+      assert {PhoenixKitHelloWorld.Web.HelloLive, :index} = main.live_view
     end
 
-    test "path uses hyphens not underscores" do
-      [tab] = PhoenixKitHelloWorld.admin_tabs()
-      refute String.contains?(tab.path, "_")
+    test "all tab paths use hyphens not underscores" do
+      for tab <- PhoenixKitHelloWorld.admin_tabs() do
+        refute String.contains?(tab.path, "_")
+      end
+    end
+
+    test "all tabs share the same permission (module_key)" do
+      for tab <- PhoenixKitHelloWorld.admin_tabs() do
+        assert tab.permission == PhoenixKitHelloWorld.module_key()
+      end
+    end
+
+    test "all subtabs reference the main tab as parent" do
+      [main | subtabs] = PhoenixKitHelloWorld.admin_tabs()
+
+      for tab <- subtabs do
+        assert tab.parent == main.id
+      end
+    end
+
+    test "includes Events subtab pointing to EventsLive" do
+      tabs = PhoenixKitHelloWorld.admin_tabs()
+      events = Enum.find(tabs, &(&1.id == :admin_hello_world_events))
+
+      assert events != nil
+      assert events.label == "Events"
+      assert events.path == "hello-world/events"
+      assert events.live_view == {PhoenixKitHelloWorld.Web.EventsLive, :index}
+    end
+
+    test "includes Components subtab pointing to ComponentsLive" do
+      tabs = PhoenixKitHelloWorld.admin_tabs()
+      components = Enum.find(tabs, &(&1.id == :admin_hello_world_components))
+
+      assert components != nil
+      assert components.label == "Components"
+      assert components.path == "hello-world/components"
+      assert components.live_view == {PhoenixKitHelloWorld.Web.ComponentsLive, :index}
     end
   end
 
@@ -102,7 +137,7 @@ defmodule PhoenixKitHelloWorldTest do
     test "returns a version string" do
       version = PhoenixKitHelloWorld.version()
       assert is_binary(version)
-      assert version == "0.1.2"
+      assert version == "0.1.3"
     end
   end
 
@@ -135,6 +170,36 @@ defmodule PhoenixKitHelloWorldTest do
 
     test "integration_providers/0 returns empty list" do
       assert PhoenixKitHelloWorld.integration_providers() == []
+    end
+  end
+
+  describe "Paths" do
+    alias PhoenixKitHelloWorld.Paths
+
+    test "index/0 returns a path string pointing to the Hello World module" do
+      path = Paths.index()
+      assert is_binary(path)
+      assert String.contains?(path, "hello-world")
+    end
+
+    test "events/0 returns the events subpath" do
+      path = Paths.events()
+      assert is_binary(path)
+      assert String.ends_with?(path, "hello-world/events")
+    end
+
+    test "components/0 returns the components subpath" do
+      path = Paths.components()
+      assert is_binary(path)
+      assert String.ends_with?(path, "hello-world/components")
+    end
+
+    test "all Paths helpers return prefix-aware strings" do
+      # Paths.index should be a prefix of sub-paths, but index ends with
+      # "hello-world" while events ends with "hello-world/events", so the
+      # index path is a prefix of the events path.
+      assert String.starts_with?(Paths.events(), Paths.index())
+      assert String.starts_with?(Paths.components(), Paths.index())
     end
   end
 end

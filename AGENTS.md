@@ -4,7 +4,11 @@ This file provides guidance to AI agents when working with code in this reposito
 
 ## Project Overview
 
-PhoenixKit plugin module template — a minimal, production-ready example for building PhoenixKit plugin modules. Implements the `PhoenixKit.Module` behaviour for auto-discovery by a parent Phoenix application.
+PhoenixKit plugin module template and showcase — a production-ready example for building PhoenixKit plugin modules. Implements the `PhoenixKit.Module` behaviour for auto-discovery by a parent Phoenix application. Ships with three admin pages that demonstrate the most common patterns:
+
+- **Overview** — Landing page with module info + a "Log demo event" button showing the canonical activity logging pattern
+- **Events** — Infinite-scroll activity feed filtered to `module: "hello_world"` (universal pattern, drop-in for any module)
+- **Components** — Live showcase of commonly-used PhoenixKit core components with copy-paste snippets
 
 ## Common Commands
 
@@ -55,9 +59,54 @@ This is a **PhoenixKit module** that implements the `PhoenixKit.Module` behaviou
 
 ### Key Modules
 
-- **`PhoenixKitHelloWorld`** (`lib/phoenix_kit_hello_world.ex`) — Main module implementing `PhoenixKit.Module` behaviour. Declares required callbacks (`module_key`, `module_name`, `enabled?`, `enable_system`, `disable_system`) and optional ones (`admin_tabs`, `permission_metadata`, `get_config`, etc.).
+- **`PhoenixKitHelloWorld`** (`lib/phoenix_kit_hello_world.ex`) — Main module implementing `PhoenixKit.Module` behaviour. Declares required callbacks (`module_key`, `module_name`, `enabled?`, `enable_system`, `disable_system`) and optional ones (`admin_tabs`, `permission_metadata`, `get_config`, etc.). Registers 4 admin tabs: parent `:admin_hello_world` + three subtabs (`:admin_hello_world_overview`, `:admin_hello_world_events`, `:admin_hello_world_components`).
 
-- **`PhoenixKitHelloWorld.Web.HelloLive`** (`lib/phoenix_kit_hello_world/web/hello_live.ex`) — LiveView page for the admin panel. PhoenixKit wraps it in the admin layout automatically.
+- **`PhoenixKitHelloWorld.Paths`** (`lib/phoenix_kit_hello_world/paths.ex`) — Centralized path helpers (`index/0`, `events/0`, `components/0`). All navigation goes through `PhoenixKit.Utils.Routes.path/1` for prefix/locale handling.
+
+- **`PhoenixKitHelloWorld.Web.HelloLive`** (`lib/phoenix_kit_hello_world/web/hello_live.ex`) — Landing page with module info, Scope API demonstration, and the "Log demo event" button showing the canonical activity logging pattern.
+
+- **`PhoenixKitHelloWorld.Web.EventsLive`** (`lib/phoenix_kit_hello_world/web/events_live.ex`) — Activity events feed with infinite scroll, action filtering, and graceful degradation when `PhoenixKit.Activity` isn't loaded. Near-identical to `phoenix_kit_catalogue`'s events tab — this is a universal pattern.
+
+- **`PhoenixKitHelloWorld.Web.ComponentsLive`** (`lib/phoenix_kit_hello_world/web/components_live.ex`) — Live showcase of commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets.
+
+### Activity Logging Pattern
+
+The canonical pattern for external modules (see `HelloLive.log_demo_event/1`):
+
+```elixir
+defp log_demo_event(socket) do
+  if Code.ensure_loaded?(PhoenixKit.Activity) do
+    PhoenixKit.Activity.log(%{
+      action: "hello_world.demo_event",
+      module: "hello_world",
+      mode: "manual",
+      actor_uuid: actor_uuid(socket),
+      resource_type: "hello_world",
+      metadata: %{"source" => "showcase_button"}
+    })
+  else
+    :activity_unavailable
+  end
+rescue
+  e ->
+    Logger.warning("[HelloWorld] Activity logging error: \#{Exception.message(e)}")
+    {:error, e}
+end
+
+defp actor_uuid(socket) do
+  case socket.assigns[:phoenix_kit_current_user] do
+    %{uuid: uuid} -> uuid
+    _ -> nil
+  end
+end
+```
+
+Key rules:
+- **Guard with `Code.ensure_loaded?/1`** so the module works on hosts without activity logging.
+- **Rescue all exceptions** — logging failures must never crash the primary operation.
+- **Extract `actor_uuid`** from `socket.assigns[:phoenix_kit_current_user]`.
+- **Action format**: `"resource.verb"` (e.g., `"hello_world.demo_event"`).
+- **Mode**: `"manual"` for user-triggered, `"auto"` for system/background.
 
 ### Settings Keys
 
@@ -68,9 +117,12 @@ This is a **PhoenixKit module** that implements the `PhoenixKit.Module` behaviou
 ```
 lib/phoenix_kit_hello_world.ex                    # Main module (PhoenixKit.Module behaviour)
 lib/phoenix_kit_hello_world/
+├── paths.ex                                     # Centralized URL path helpers
 ├── routes.ex                                    # Route module scaffold (for multi-page modules)
 └── web/
-    └── hello_live.ex                            # Admin LiveView page
+    ├── hello_live.ex                            # Overview: module info + activity logging demo
+    ├── events_live.ex                           # Activity events feed (infinite scroll)
+    └── components_live.ex                       # PhoenixKit core components showcase
 ```
 
 ## Critical Conventions
@@ -90,9 +142,9 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`.
 
 ## Routing: Single Page vs Multi-Page
 
-**Single admin page** (this template): The `live_view:` field on `admin_tabs/0` auto-generates the route. No route module needed.
+**Multi-tab via `live_view:` on each tab** (this template): Each tab in `admin_tabs/0` sets its own `live_view:` field, and PhoenixKit auto-generates a route per tab. This works for a parent tab + several subtabs that each map to a different LiveView, as long as none of them have dynamic path segments (`:id`, `:uuid`, etc.). The showcase uses this pattern with an Overview, Events, and Components subtab.
 
-**Multiple admin pages**: You MUST use a route module. The `live_view:` field only generates ONE route per tab — it can't handle sub-pages like `/admin/your-module/new` or `/admin/your-module/:id/edit`. Steps:
+**Route module pattern**: You MUST use a route module when you need sub-pages with dynamic segments like `/admin/your-module/new` or `/admin/your-module/:id/edit`. The `live_view:` field only generates ONE static route per tab. Steps:
 
 1. Uncomment the routes in `lib/phoenix_kit_hello_world/routes.ex`
 2. Uncomment `route_module/0` in the main module
@@ -190,10 +242,18 @@ Severity levels for review findings:
 - `IMPROVEMENT - MEDIUM` — Better patterns or maintainability
 - `NITPICK` — Style, naming, minor suggestions
 
+## Pre-commit Commands
+
+Always run before git commit:
+
+```bash
+mix precommit               # compile + format + credo --strict + dialyzer
+```
+
 ## External Dependencies
 
-- **PhoenixKit** (`~> 1.7`) — Module behaviour, Settings API, shared components, RepoHelper
-- **Phoenix LiveView** (`~> 1.0`) — Admin LiveViews
+- **PhoenixKit** (`~> 1.7`) — Module behaviour, Settings API, shared components, RepoHelper, Activity logging
+- **Phoenix LiveView** (`~> 1.1`) — Admin LiveViews
 
 ## Two Module Types
 
