@@ -44,7 +44,15 @@ defmodule PhoenixKitHelloWorld.MixProject do
     [
       quality: ["format", "credo --strict", "dialyzer"],
       "quality.ci": ["format --check-formatted", "credo --strict", "dialyzer"],
-      precommit: ["compile", "quality"]
+      precommit: ["compile", "quality"],
+      "test.setup": [
+        "ecto.create --quiet -r PhoenixKitHelloWorld.Test.Repo",
+        "ecto.migrate -r PhoenixKitHelloWorld.Test.Repo"
+      ],
+      "test.reset": [
+        "ecto.drop --quiet -r PhoenixKitHelloWorld.Test.Repo",
+        "test.setup"
+      ]
     ]
   end
 
@@ -61,7 +69,10 @@ defmodule PhoenixKitHelloWorld.MixProject do
 
       # Code quality
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+
+      # HTML parser for Phoenix.LiveViewTest in LiveView smoke tests
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 

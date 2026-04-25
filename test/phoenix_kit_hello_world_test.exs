@@ -141,6 +141,13 @@ defmodule PhoenixKitHelloWorldTest do
     end
   end
 
+  describe "css_sources/0" do
+    test "returns a list with the OTP app atom" do
+      sources = PhoenixKitHelloWorld.css_sources()
+      assert sources == [:phoenix_kit_hello_world]
+    end
+  end
+
   describe "optional callbacks have defaults" do
     test "get_config/0 returns a map" do
       config = PhoenixKitHelloWorld.get_config()

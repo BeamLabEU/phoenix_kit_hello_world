@@ -10,6 +10,18 @@ PhoenixKit plugin module template and showcase — a production-ready example fo
 - **Events** — Infinite-scroll activity feed filtered to `module: "hello_world"` (universal pattern, drop-in for any module)
 - **Components** — Live showcase of commonly-used PhoenixKit core components with copy-paste snippets
 
+## What This Module Does NOT Have (by design)
+
+This is the canonical template — its job is to demonstrate the minimum viable shape of a PhoenixKit module. It deliberately omits things larger modules need so future copies start lean:
+
+- **No context module** — there is no `PhoenixKitHelloWorld.HelloWorld` business-logic context. Pure presentation; the only "operation" is logging a demo activity event from `HelloLive`. Larger modules (locations, catalogue) add a context module.
+- **No Errors dispatcher** — there are no error-returning context functions, so no `PhoenixKitHelloWorld.Errors` atom-to-gettext module. When you build a real module that returns `{:error, :something}` shapes, copy `phoenix_kit_locations/lib/phoenix_kit_locations/errors.ex` as the reference.
+- **No Ecto schemas** — no DB-backed data of its own. Larger modules add `lib/<module>/schemas/`.
+- **No production migrations** — modules with DB tables get them via core `phoenix_kit`'s versioned migrations (V90+ scheme), not in their own repo.
+- **No `actor_opts/1` keyword-list helper** — `HelloLive` uses a simpler `actor_uuid/1` (returns the UUID directly) because the `Activity.log/1` map embeds the value directly. The `actor_opts/1` form returning `[actor_uuid: uuid]` shows up in modules that thread it through context functions accepting `opts \\ []`.
+
+When extending this template into a real module, the order of additions is usually: context module → schemas → Errors dispatcher → `actor_opts/1` helper, in that order. See `phoenix_kit_locations` for the smallest end-to-end reference of all four.
+
 ## Common Commands
 
 ### Setup & Dependencies
@@ -67,7 +79,7 @@ This is a **PhoenixKit module** that implements the `PhoenixKit.Module` behaviou
 
 - **`PhoenixKitHelloWorld.Web.EventsLive`** (`lib/phoenix_kit_hello_world/web/events_live.ex`) — Activity events feed with infinite scroll, action filtering, and graceful degradation when `PhoenixKit.Activity` isn't loaded. Near-identical to `phoenix_kit_catalogue`'s events tab — this is a universal pattern.
 
-- **`PhoenixKitHelloWorld.Web.ComponentsLive`** (`lib/phoenix_kit_hello_world/web/components_live.ex`) — Live showcase of commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets.
+- **`PhoenixKitHelloWorld.Web.ComponentsLive`** (`lib/phoenix_kit_hello_world/web/components_live.ex`) — Live showcase of commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets. **Render is decomposed into per-section function components** — see "Code Organization: Section-Decomposition Pattern" below. The render function is a flat dispatch over 22 `<.x_section />` calls; each section is a private function returning a `<.showcase_section>` block.
 
 ### Activity Logging Pattern
 
@@ -108,6 +120,42 @@ Key rules:
 - **Action format**: `"resource.verb"` (e.g., `"hello_world.demo_event"`).
 - **Mode**: `"manual"` for user-triggered, `"auto"` for system/background.
 
+### Code Organization: Section-Decomposition Pattern
+
+`ComponentsLive` demonstrates a pattern worth copying for any LiveView whose render function would otherwise grow past ~150 lines: **flat dispatch from `render/1` to per-section private function components**.
+
+```elixir
+def render(assigns) do
+  ~H"""
+  <div class="...">
+    <.icons_section />
+    <.badges_section />
+    <.modals_section show_modal={@show_modal} show_confirm={@show_confirm} counter={@counter} />
+    <.section_divider label="..." />
+    <.draggable_list_section items={@draggable_items} />
+  </div>
+  """
+end
+
+defp icons_section(assigns), do: ~H"""<.showcase_section title="Icons" ...>...</.showcase_section>"""
+defp badges_section(assigns), do: ~H"""<.showcase_section title="Badges" ...>...</.showcase_section>"""
+
+attr(:show_modal, :boolean, required: true)
+attr(:show_confirm, :boolean, required: true)
+attr(:counter, :integer, required: true)
+defp modals_section(assigns), do: ~H"""..."""
+```
+
+Rules:
+
+- **One function per section, in render order.** Lets you jump to a section by name and modify it without scrolling 700 lines of HEEX.
+- **Sections that need LV state declare `attr` for each value.** Don't pass the whole `assigns` — be explicit about what the section reads.
+- **Stateless sections take no attrs** — they're called as `<.icons_section />`.
+- **Stay in one file.** The "single-file showcase" value of a template page (everything visible at once when copy-pasting from the source) is preserved by keeping all sections in the same module. The only thing the decomposition changes is per-function navigability.
+- **Small inline helpers like `<.section_divider label="...">` and `<.page_header>` belong with the sections** — they're part of the same dispatch shape.
+
+`ComponentsLive` ended up at 1060 lines after decomposition (was 905 before, with one 742-line render function). Total grew because each section now has function-component plumbing; per-function size dropped from 742 → ~30 (render) and ~25–50 (each section). The win is in maintainability, not in source-line count.
+
 ### Settings Keys
 
 `hello_world_enabled`
@@ -138,7 +186,13 @@ lib/phoenix_kit_hello_world/
 
 ### Commit Message Rules
 
-Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`.
+Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **Do not include AI attribution or `Co-Authored-By` footers** — Max handles attribution on his own.
+
+### Core Form Primitives
+
+Hello World uses `use PhoenixKitWeb, :live_view` (not `use Phoenix.LiveView` directly), which auto-imports the core form primitives `<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`, `<.simple_form>` from `PhoenixKitWeb.Components.Core.{Input, Select, Textarea, Checkbox, SimpleForm}`. Use these in every form rather than raw HTML — they handle label wiring, error rendering via `phx-feedback-for`, and daisyUI styling. The `ComponentsLive` "Form helpers" section (the `<.form_helpers_section />` private function) demonstrates this pattern end-to-end.
+
+Modules that use `use Phoenix.LiveView` directly (locations, sync, catalogue, newsletters) need to `import` these explicitly. This template's choice of `PhoenixKitWeb` macros is the simpler default and the recommended starting point.
 
 ## Routing: Single Page vs Multi-Page
 
@@ -194,11 +248,40 @@ This template module has no database tables. Modules that need DB tables should 
 
 ## Testing
 
+### Setup
+
+This module owns its own test database (`phoenix_kit_hello_world_test`) and a test migration at `test/support/postgres/migrations/`. Create the DB once:
+
+```bash
+createdb phoenix_kit_hello_world_test
+```
+
+If the DB is absent, integration tests auto-exclude via the `:integration` tag (see `test/test_helper.exs`) — unit tests still run.
+
+The critical config wiring is in `config/test.exs`:
+
+```elixir
+config :phoenix_kit, repo: PhoenixKitHelloWorld.Test.Repo
+```
+
+Without this, all DB calls through `PhoenixKit.RepoHelper` crash with "No repository configured".
+
+### Test infrastructure
+
+- `test/support/test_repo.ex` — `PhoenixKitHelloWorld.Test.Repo` (Ecto repo for tests)
+- `test/support/data_case.ex` — `PhoenixKitHelloWorld.DataCase` (sandbox setup, auto-tags `:integration`)
+- `test/support/live_case.ex` — `PhoenixKitHelloWorld.LiveCase` (thin wrapper around `Phoenix.LiveViewTest` with router + endpoint wiring)
+- `test/support/test_endpoint.ex` + `test_router.ex` + `test_layouts.ex` — minimal Phoenix plumbing so LiveViews can render under `Phoenix.LiveViewTest.live/2`. **`Test.Layouts.app/1` renders flashes** — required for asserting flash content via `live/2` after click events
+- `test/support/activity_log_assertions.ex` — `PhoenixKitHelloWorld.ActivityLogAssertions` (helpers `assert_activity_logged/2` and `refute_activity_logged/2` that query `phoenix_kit_activities` directly with action / actor_uuid / metadata-subset matching)
+- `test/support/postgres/migrations/` — creates the `phoenix_kit_settings` and `phoenix_kit_activities` tables + the `uuid_generate_v7()` function (this module owns no application tables)
+
 ### Running tests
 
 ```bash
-mix test                                        # All tests
-mix test test/phoenix_kit_hello_world_test.exs  # Module behaviour tests
+mix test                                          # All tests (excludes :integration if no DB)
+mix test test/phoenix_kit_hello_world_test.exs    # Module behaviour tests only
+mix test test/phoenix_kit_hello_world/web         # LiveView smoke tests only
+for i in $(seq 1 10); do mix test; done           # stability check — catches sandbox/activity-log flakes
 ```
 
 ### Version compliance test
@@ -273,6 +356,7 @@ mix precommit               # compile + format + credo --strict + dialyzer
 
 - **PhoenixKit** (`~> 1.7`) — Module behaviour, Settings API, shared components, RepoHelper, Activity logging
 - **Phoenix LiveView** (`~> 1.1`) — Admin LiveViews
+- **lazy_html** (test only) — HTML parser used by `Phoenix.LiveViewTest` for smoke tests
 
 ## Two Module Types
 

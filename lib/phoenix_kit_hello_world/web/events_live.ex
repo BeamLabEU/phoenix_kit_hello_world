@@ -218,15 +218,16 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
     <div class="flex flex-col mx-auto max-w-5xl px-4 py-6 gap-4">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-2xl font-bold">Activity Events</h2>
+          <h2 class="text-2xl font-bold">{Gettext.gettext(PhoenixKitWeb.Gettext, "Activity Events")}</h2>
           <p class="text-sm text-base-content/60 mt-1">
-            Events logged by the Hello World module. Click the "Log demo event" button on the
-            <.link navigate={Paths.index()} class="link link-primary">Overview</.link>
-            page to add entries.
+            {Gettext.gettext(
+              PhoenixKitWeb.Gettext,
+              "Events logged by the Hello World module. Click the \"Log demo event\" button on the Overview page to add entries."
+            )}
           </p>
         </div>
         <div class="text-sm text-base-content/60">
-          {@total} events
+          {Gettext.gettext(PhoenixKitWeb.Gettext, "%{count} events", count: @total)}
         </div>
       </div>
 
@@ -234,10 +235,12 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
       <div class="bg-base-200 rounded-lg p-3">
         <.form for={%{}} phx-change="filter" class="flex flex-wrap gap-3 items-end">
           <div class="form-control">
-            <label class="label"><span class="label-text text-xs">Action</span></label>
+            <label class="label">
+              <span class="label-text text-xs">{Gettext.gettext(PhoenixKitWeb.Gettext, "Action")}</span>
+            </label>
             <label class="select select-bordered select-sm">
               <select name="filter[action]">
-                <option value="">All Actions</option>
+                <option value="">{Gettext.gettext(PhoenixKitWeb.Gettext, "All Actions")}</option>
                 <%= for action <- @action_types do %>
                   <option value={action} selected={@filter_action == action}>
                     {action}
@@ -248,7 +251,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
           </div>
 
           <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
-            Clear
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "Clear")}
           </button>
         </.form>
       </div>
@@ -295,7 +298,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
               <%= if entry.actor do %>
                 {entry.actor.email}
               <% else %>
-                <span class="text-base-content/40">System</span>
+                <span class="text-base-content/40">{Gettext.gettext(PhoenixKitWeb.Gettext, "System")}</span>
               <% end %>
             </div>
 
@@ -320,11 +323,12 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
       <%= if @total == 0 and not @loading do %>
         <div class="text-center py-12 text-base-content/60">
           <.icon name="hero-bell-slash" class="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>No events recorded yet</p>
+          <p>{Gettext.gettext(PhoenixKitWeb.Gettext, "No events recorded yet")}</p>
           <p class="text-xs mt-1">
-            Head back to the
-            <.link navigate={Paths.index()} class="link link-primary">Overview</.link>
-            page and click "Log demo event".
+            {Gettext.gettext(
+              PhoenixKitWeb.Gettext,
+              "Head back to the Overview page and click \"Log demo event\"."
+            )}
           </p>
         </div>
       <% end %>
@@ -340,7 +344,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
 
       <%= if not @has_more and @total > 0 do %>
         <div class="text-center text-xs text-base-content/40 py-2">
-          All events loaded
+          {Gettext.gettext(PhoenixKitWeb.Gettext, "All events loaded")}
         </div>
       <% end %>
     </div>

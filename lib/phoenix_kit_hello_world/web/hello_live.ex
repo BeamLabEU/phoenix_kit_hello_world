@@ -167,22 +167,28 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
           <div class="flex flex-wrap justify-center gap-2 mt-4">
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Auto-discovery
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Auto-discovery")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Routing
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Routing")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Permissions
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Permissions")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Admin layout
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Admin layout")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Sidebar tab
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Sidebar tab")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Activity logging
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Activity logging")}
             </div>
           </div>
         </div>
@@ -205,6 +211,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
               :if={@module_access}
               type="button"
               phx-click="log_demo_event"
+              phx-disable-with={Gettext.gettext(PhoenixKitWeb.Gettext, "Logging…")}
               class="btn btn-primary btn-sm"
             >
               <.icon name="hero-play" class="w-4 h-4" />
@@ -302,12 +309,12 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
             <.link navigate={Paths.events()} class="btn btn-outline btn-sm justify-start">
               <.icon name="hero-clock" class="w-4 h-4" />
-              <span>Events feed</span>
+              <span>{Gettext.gettext(PhoenixKitWeb.Gettext, "Events feed")}</span>
               <.icon name="hero-arrow-right" class="w-4 h-4 ml-auto" />
             </.link>
             <.link navigate={Paths.components()} class="btn btn-outline btn-sm justify-start">
               <.icon name="hero-squares-2x2" class="w-4 h-4" />
-              <span>Components showcase</span>
+              <span>{Gettext.gettext(PhoenixKitWeb.Gettext, "Components showcase")}</span>
               <.icon name="hero-arrow-right" class="w-4 h-4 ml-auto" />
             </.link>
           </div>
