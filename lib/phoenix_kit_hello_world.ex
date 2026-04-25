@@ -94,13 +94,23 @@ defmodule PhoenixKitHelloWorld do
   @doc """
   Whether the module is currently enabled.
 
-  Reads from the DB-backed settings table. The `rescue` clause handles
-  the case where the DB isn't available yet (e.g. before migrations run).
+  Reads from the DB-backed settings table. Defensive against three
+  failure modes that can hit before/around DB availability:
+
+  - `rescue _`: DB not running, table missing, schema mismatch, etc.
+  - `catch :exit, _`: connection pool checkout `EXIT` (e.g. when a
+    test sandbox owner has just stopped — test-environment artifact,
+    but harmless to handle in production code too).
+
+  All branches return `false` so callers don't need to special-case
+  startup ordering.
   """
   def enabled? do
     Settings.get_boolean_setting("hello_world_enabled", false)
   rescue
     _ -> false
+  catch
+    :exit, _ -> false
   end
 
   @impl PhoenixKit.Module
