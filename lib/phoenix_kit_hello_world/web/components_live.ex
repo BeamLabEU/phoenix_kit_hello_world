@@ -140,6 +140,15 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
+  # Defensive catch-all so a stray PubSub broadcast or OTP message can't
+  # crash this LiveView with a FunctionClauseError. Logs at :debug so it
+  # never spams in production but stays grep-able during development.
+  @impl true
+  def handle_info(msg, socket) do
+    Logger.debug("[#{inspect(__MODULE__)}] Unhandled info: #{inspect(msg)}")
+    {:noreply, socket}
+  end
+
   # Demo form uses a plain map + to_form so we don't need a changeset/schema.
   defp demo_form do
     to_form(%{"name" => "", "email" => "", "bio" => "", "role" => "", "agree" => false})

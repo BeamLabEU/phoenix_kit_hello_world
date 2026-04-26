@@ -142,6 +142,20 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       # New order — Item 6 appears before Item 1
       assert rendered =~ ~r/Item 6.*Item 5.*Item 1/s
     end
+
+    test "handle_info catch-all swallows unknown messages (Batch 2)", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/en/admin/hello-world/components")
+
+      # Without the catch-all, sending an unknown message crashes the LV
+      # with FunctionClauseError on the next render. With it, the LV
+      # stays alive and the page re-renders normally.
+      send(view.pid, :unknown_pubsub_event)
+      send(view.pid, {:something, :random, "payload"})
+
+      html = render(view)
+      assert is_binary(html)
+      assert html =~ "PhoenixKit Components"
+    end
   end
 
   defp count_substring(string, substring) do

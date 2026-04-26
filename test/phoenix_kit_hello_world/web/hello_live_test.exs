@@ -92,4 +92,57 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
       assert html =~ "Components showcase"
     end
   end
+
+  describe "Module Info / Current User cards (Batch 2 i18n delta)" do
+    test "renders gettext-wrapped dt labels in both info cards", %{conn: conn} do
+      conn = put_test_scope(conn, fake_scope(permissions: ["hello_world"]))
+
+      {:ok, _view, html} = live(conn, "/en/admin/hello-world")
+
+      # Every dt label should appear inside a `<dt …>…</dt>` tag with
+      # the exact text the gettext extractor sees as a literal. Long
+      # labels wrap onto their own line, so allow surrounding
+      # whitespace inside the tag.
+      for dt_label <- [
+            "Module",
+            "Key",
+            "Version",
+            "Enabled",
+            "Email",
+            "Roles",
+            "Admin?",
+            "Module access?"
+          ] do
+        regex = Regex.compile!("<dt[^>]*>\\s*#{Regex.escape(dt_label)}\\s*</dt>")
+
+        assert html =~ regex,
+               "expected dt label #{inspect(dt_label)} rendered inside a <dt> tag"
+      end
+
+      # Card titles
+      assert html =~ "Module Info"
+      assert html =~ "Current User"
+      assert html =~ "Next Steps"
+      assert html =~ "Explore the showcase"
+    end
+  end
+
+  describe "handle_info catch-all (Batch 2 — defensive)" do
+    test "swallows unknown OTP messages without crashing", %{conn: conn} do
+      conn = put_test_scope(conn, fake_scope(permissions: ["hello_world"]))
+
+      {:ok, view, _html} = live(conn, "/en/admin/hello-world")
+
+      # If the catch-all is removed, this raises FunctionClauseError
+      # inside the LV process and the next render/1 call returns an
+      # error. With the catch-all in place, the LV stays alive and
+      # render returns the same HTML.
+      send(view.pid, :unknown_pubsub_event)
+      send(view.pid, {:something, :random, "payload"})
+
+      html = render(view)
+      assert is_binary(html)
+      assert html =~ "Hello World Plugin"
+    end
+  end
 end

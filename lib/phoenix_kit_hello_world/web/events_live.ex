@@ -19,6 +19,8 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
 
   use Phoenix.LiveView
 
+  require Logger
+
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
   alias PhoenixKit.Utils.Routes
@@ -87,6 +89,15 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
     else
       {:noreply, socket}
     end
+  end
+
+  # Defensive catch-all so a stray PubSub broadcast or OTP message can't
+  # crash this LiveView with a FunctionClauseError. Logs at :debug so it
+  # never spams in production but stays grep-able during development.
+  @impl true
+  def handle_info(msg, socket) do
+    Logger.debug("[#{inspect(__MODULE__)}] Unhandled info: #{inspect(msg)}")
+    {:noreply, socket}
   end
 
   # ── Private ──────────────────────────────────────────────────────
@@ -311,7 +322,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
             <.link
               navigate={Routes.path("/admin/activity/#{entry.uuid}")}
               class="btn btn-ghost btn-xs btn-square"
-              title="View details"
+              title={Gettext.gettext(PhoenixKitWeb.Gettext, "View details")}
             >
               <.icon name="hero-arrow-top-right-on-square" class="w-3.5 h-3.5" />
             </.link>
