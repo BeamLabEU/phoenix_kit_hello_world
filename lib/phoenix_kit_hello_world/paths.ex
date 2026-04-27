@@ -17,11 +17,14 @@ defmodule PhoenixKitHelloWorld.Paths do
   @base "/admin/hello-world"
 
   @doc "Main Hello World landing page with module info and the demo action."
+  @spec index() :: String.t()
   def index, do: Routes.path(@base)
 
   @doc "Activity events feed filtered to this module."
+  @spec events() :: String.t()
   def events, do: Routes.path("#{@base}/events")
 
   @doc "PhoenixKit core component showcase."
+  @spec components() :: String.t()
   def components, do: Routes.path("#{@base}/components")
 end

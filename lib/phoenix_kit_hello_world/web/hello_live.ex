@@ -81,6 +81,15 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
     end
   end
 
+  # Defensive catch-all so a stray PubSub broadcast or OTP message can't
+  # crash this LiveView with a FunctionClauseError. Logs at :debug so it
+  # never spams in production but stays grep-able during development.
+  @impl true
+  def handle_info(msg, socket) do
+    Logger.debug("[#{inspect(__MODULE__)}] Unhandled info: #{inspect(msg)}")
+    {:noreply, socket}
+  end
+
   defp handle_demo_event_log(socket) do
     case log_demo_event(socket) do
       {:ok, _entry} ->
@@ -160,29 +169,40 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
       <%!-- Status card --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body items-center text-center">
-          <h2 class="card-title text-3xl">Hello World Plugin</h2>
+          <h2 class="card-title text-3xl">
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "Hello World Plugin")}
+          </h2>
           <p class="text-base-content/70 mt-1">
-            This is an external PhoenixKit plugin module. Everything below confirms it's working.
+            {Gettext.gettext(
+              PhoenixKitWeb.Gettext,
+              "This is an external PhoenixKit plugin module. Everything below confirms it's working."
+            )}
           </p>
 
           <div class="flex flex-wrap justify-center gap-2 mt-4">
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Auto-discovery
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Auto-discovery")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Routing
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Routing")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Permissions
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Permissions")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Admin layout
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Admin layout")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Sidebar tab
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Sidebar tab")}
             </div>
             <div class="badge badge-success gap-1">
-              <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Activity logging
+              <.icon name="hero-check-circle-mini" class="w-3 h-3" />
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Activity logging")}
             </div>
           </div>
         </div>
@@ -192,12 +212,16 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h3 class="card-title text-lg">
-            <.icon name="hero-bolt" class="w-5 h-5" /> Activity Logging Demo
+            <.icon name="hero-bolt" class="w-5 h-5" />
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "Activity Logging Demo")}
           </h3>
           <p class="text-base-content/70 text-sm">
-            Click the button below to log an activity event.
-            Then visit the <.link navigate={Paths.events()} class="link link-primary">Events tab</.link>
-            to see it appear in the feed.
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "Click the button below to log an activity event.")}
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "Then visit the")}
+            <.link navigate={Paths.events()} class="link link-primary">
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Events tab")}
+            </.link>
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "to see it appear in the feed.")}
           </p>
 
           <div class="flex items-center gap-3 mt-3">
@@ -205,6 +229,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
               :if={@module_access}
               type="button"
               phx-click="log_demo_event"
+              phx-disable-with={Gettext.gettext(PhoenixKitWeb.Gettext, "Logging…")}
               class="btn btn-primary btn-sm"
             >
               <.icon name="hero-play" class="w-4 h-4" />
@@ -231,7 +256,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
           <details class="mt-3">
             <summary class="text-xs text-base-content/60 cursor-pointer">
-              Show the code pattern
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Show the code pattern")}
             </summary>
             <pre class="text-xs bg-base-200 p-3 rounded mt-2 overflow-x-auto"><code>{@demo_event_snippet}</code></pre>
           </details>
@@ -242,15 +267,17 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
         <%!-- Module info --%>
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <h3 class="card-title text-lg">Module Info</h3>
+            <h3 class="card-title text-lg">
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Module Info")}
+            </h3>
             <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mt-2">
-              <dt class="text-base-content/70">Module</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Module")}</dt>
               <dd class="font-mono text-xs">{inspect(PhoenixKitHelloWorld)}</dd>
-              <dt class="text-base-content/70">Key</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Key")}</dt>
               <dd class="font-mono">{PhoenixKitHelloWorld.module_key()}</dd>
-              <dt class="text-base-content/70">Version</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Version")}</dt>
               <dd class="font-mono">{PhoenixKitHelloWorld.version()}</dd>
-              <dt class="text-base-content/70">Enabled</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Enabled")}</dt>
               <dd>
                 <span class={[
                   "badge badge-sm",
@@ -266,14 +293,17 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
         <%!-- Current user info (demonstrates Scope API) --%>
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <h3 class="card-title text-lg">Current User</h3>
+            <h3 class="card-title text-lg">
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "Current User")}
+            </h3>
             <p class="text-base-content/60 text-xs">
-              via <code class="bg-base-200 px-1 rounded">@phoenix_kit_current_scope</code>
+              {Gettext.gettext(PhoenixKitWeb.Gettext, "via")}
+              <code class="bg-base-200 px-1 rounded">@phoenix_kit_current_scope</code>
             </p>
             <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mt-2">
-              <dt class="text-base-content/70">Email</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Email")}</dt>
               <dd class="font-mono text-xs">{@user_email || "—"}</dd>
-              <dt class="text-base-content/70">Roles</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Roles")}</dt>
               <dd>
                 <div class="flex flex-wrap gap-1">
                   <span
@@ -284,9 +314,11 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
                   </span>
                 </div>
               </dd>
-              <dt class="text-base-content/70">Admin?</dt>
+              <dt class="text-base-content/70">{Gettext.gettext(PhoenixKitWeb.Gettext, "Admin?")}</dt>
               <dd class="font-mono">{to_string(@is_admin)}</dd>
-              <dt class="text-base-content/70">Module access?</dt>
+              <dt class="text-base-content/70">
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "Module access?")}
+              </dt>
               <dd class="font-mono">{to_string(@module_access)}</dd>
             </dl>
           </div>
@@ -297,17 +329,18 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h3 class="card-title text-lg">
-            <.icon name="hero-map" class="w-5 h-5" /> Explore the showcase
+            <.icon name="hero-map" class="w-5 h-5" />
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "Explore the showcase")}
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
             <.link navigate={Paths.events()} class="btn btn-outline btn-sm justify-start">
               <.icon name="hero-clock" class="w-4 h-4" />
-              <span>Events feed</span>
+              <span>{Gettext.gettext(PhoenixKitWeb.Gettext, "Events feed")}</span>
               <.icon name="hero-arrow-right" class="w-4 h-4 ml-auto" />
             </.link>
             <.link navigate={Paths.components()} class="btn btn-outline btn-sm justify-start">
               <.icon name="hero-squares-2x2" class="w-4 h-4" />
-              <span>Components showcase</span>
+              <span>{Gettext.gettext(PhoenixKitWeb.Gettext, "Components showcase")}</span>
               <.icon name="hero-arrow-right" class="w-4 h-4 ml-auto" />
             </.link>
           </div>
@@ -317,30 +350,55 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
       <%!-- Next steps --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h3 class="card-title text-lg">Next Steps</h3>
+          <h3 class="card-title text-lg">{Gettext.gettext(PhoenixKitWeb.Gettext, "Next Steps")}</h3>
           <p class="text-base-content/70 text-sm">
-            This page is your starting point. Replace it with your own content.
+            {Gettext.gettext(
+              PhoenixKitWeb.Gettext,
+              "This page is your starting point. Replace it with your own content."
+            )}
           </p>
           <ul class="text-sm space-y-2 mt-2 list-none">
             <li class="flex gap-2">
               <span class="text-base-content/40">1.</span>
-              <span>Edit <code class="bg-base-200 px-1 rounded text-xs">lib/phoenix_kit_hello_world/web/hello_live.ex</code> — this file</span>
+              <span>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "Edit")}
+                <code class="bg-base-200 px-1 rounded text-xs">lib/phoenix_kit_hello_world/web/hello_live.ex</code>
+                — {Gettext.gettext(PhoenixKitWeb.Gettext, "this file")}
+              </span>
             </li>
             <li class="flex gap-2">
               <span class="text-base-content/40">2.</span>
-              <span>Update callbacks in <code class="bg-base-200 px-1 rounded text-xs">lib/phoenix_kit_hello_world.ex</code> — module key, name, tabs</span>
+              <span>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "Update callbacks in")}
+                <code class="bg-base-200 px-1 rounded text-xs">lib/phoenix_kit_hello_world.ex</code>
+                — {Gettext.gettext(PhoenixKitWeb.Gettext, "module key, name, tabs")}
+              </span>
             </li>
             <li class="flex gap-2">
               <span class="text-base-content/40">3.</span>
-              <span>Log all mutations via <code class="bg-base-200 px-1 rounded text-xs">PhoenixKit.Activity.log/1</code> — see the demo button above</span>
+              <span>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "Log all mutations via")}
+                <code class="bg-base-200 px-1 rounded text-xs">PhoenixKit.Activity.log/1</code>
+                — {Gettext.gettext(PhoenixKitWeb.Gettext, "see the demo button above")}
+              </span>
             </li>
             <li class="flex gap-2">
               <span class="text-base-content/40">4.</span>
-              <span>Browse <.link navigate={Paths.components()} class="link link-primary">Components</.link> to see what's available</span>
+              <span>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "Browse")}
+                <.link navigate={Paths.components()} class="link link-primary">
+                  {Gettext.gettext(PhoenixKitWeb.Gettext, "Components")}
+                </.link>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "to see what's available")}
+              </span>
             </li>
             <li class="flex gap-2">
               <span class="text-base-content/40">5.</span>
-              <span>See the <code class="bg-base-200 px-1 rounded text-xs">README.md</code> for the full guide</span>
+              <span>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "See the")}
+                <code class="bg-base-200 px-1 rounded text-xs">README.md</code>
+                {Gettext.gettext(PhoenixKitWeb.Gettext, "for the full guide")}
+              </span>
             </li>
           </ul>
         </div>

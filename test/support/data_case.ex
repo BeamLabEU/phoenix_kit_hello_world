@@ -28,6 +28,8 @@ defmodule PhoenixKitHelloWorld.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
+      import PhoenixKitHelloWorld.ActivityLogAssertions
+      import PhoenixKitHelloWorld.DataCase
     end
   end
 
@@ -40,5 +42,17 @@ defmodule PhoenixKitHelloWorld.DataCase do
     on_exit(fn -> Sandbox.stop_owner(pid) end)
 
     :ok
+  end
+
+  @doc """
+  Translates changeset errors into a `%{field => [message]}` map. Used
+  by tests that assert on changeset error messages.
+  """
+  def errors_on(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
   end
 end

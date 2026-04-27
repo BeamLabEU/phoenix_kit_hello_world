@@ -1,17 +1,41 @@
-# Test helper for PhoenixKitHelloWorld test suite
+# Test helper for PhoenixKitHelloWorld test suite.
 #
 # Level 1: Unit tests (schemas, changesets, pure functions) always run.
 # Level 2: Integration tests require PostgreSQL — automatically excluded
-#          when the database is unavailable.
+#          when the database is unavailable (`:integration` tag).
 #
 # To enable integration tests:
-#   createdb phoenix_kit_hello_world_test
+#
+#     mix test.setup           # createdb + migrate
+#     mix test
+#
+# The test endpoint runs with `server: false` (no port opened); LiveView
+# tests drive it via `Phoenix.LiveViewTest.live/2` only.
 
-alias PhoenixKitHelloWorld.Test.Repo, as: TestRepo
+# Elixir 1.19's `mix test` no longer auto-loads modules from the
+# `:elixirc_paths` test directories at test-helper time — only files
+# matching `:test_load_filters` get loaded by the test runner. Our
+# support modules are compiled but not loaded, so explicit
+# `Code.require_file/2` calls are needed before this file references
+# them.
+support_dir = Path.expand("support", __DIR__)
 
-# Check if the test database exists before trying to connect
-db_config = Application.get_env(:phoenix_kit_hello_world, TestRepo, [])
-db_name = db_config[:database] || "phoenix_kit_hello_world_test"
+[
+  "test_repo.ex",
+  "test_layouts.ex",
+  "hooks.ex",
+  "test_router.ex",
+  "test_endpoint.ex",
+  "activity_log_assertions.ex",
+  "data_case.ex",
+  "live_case.ex"
+]
+|> Enum.each(&Code.require_file(&1, support_dir))
+
+# Check if the test database exists
+db_name =
+  Application.get_env(:phoenix_kit_hello_world, PhoenixKitHelloWorld.Test.Repo)[:database] ||
+    "phoenix_kit_hello_world_test"
 
 db_check =
   case System.cmd("psql", ["-lqt"], stderr_to_stdout: true) do
@@ -32,42 +56,22 @@ db_check =
 repo_available =
   if db_check == :not_found do
     IO.puts("""
-    \n  Test database "#{db_name}" not found — integration tests excluded.
-       Run: createdb #{db_name}
+    \n⚠  Test database "#{db_name}" not found — integration tests will be excluded.
+       Run `mix test.setup` to create the test database.
     """)
 
     false
   else
     try do
-      {:ok, _} = TestRepo.start_link()
+      {:ok, _} = PhoenixKitHelloWorld.Test.Repo.start_link()
 
-      # Enable uuid-ossp extension
-      TestRepo.query!("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
-
-      # Create uuid_generate_v7() function (normally created by PhoenixKit V40 migration)
-      TestRepo.query!("""
-      CREATE OR REPLACE FUNCTION uuid_generate_v7()
-      RETURNS uuid AS $$
-      DECLARE
-        unix_ts_ms bytea;
-        uuid_bytes bytea;
-      BEGIN
-        unix_ts_ms := substring(int8send(floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3);
-        uuid_bytes := unix_ts_ms || gen_random_bytes(10);
-        uuid_bytes := set_byte(uuid_bytes, 6, (get_byte(uuid_bytes, 6) & 15) | 112);
-        uuid_bytes := set_byte(uuid_bytes, 8, (get_byte(uuid_bytes, 8) & 63) | 128);
-        RETURN encode(uuid_bytes, 'hex')::uuid;
-      END;
-      $$ LANGUAGE plpgsql VOLATILE;
-      """)
-
-      Ecto.Adapters.SQL.Sandbox.mode(TestRepo, :manual)
+      Ecto.Adapters.SQL.Sandbox.mode(PhoenixKitHelloWorld.Test.Repo, :manual)
       true
     rescue
       e ->
         IO.puts("""
-        \n  Could not connect to test database — integration tests excluded.
-           Run: createdb #{db_name}
+        \n⚠  Could not connect to test database — integration tests will be excluded.
+           Run `mix test.setup` to create the test database.
            Error: #{Exception.message(e)}
         """)
 
@@ -75,8 +79,8 @@ repo_available =
     catch
       :exit, reason ->
         IO.puts("""
-        \n  Could not connect to test database — integration tests excluded.
-           Run: createdb #{db_name}
+        \n⚠  Could not connect to test database — integration tests will be excluded.
+           Run `mix test.setup` to create the test database.
            Error: #{inspect(reason)}
         """)
 
@@ -86,11 +90,27 @@ repo_available =
 
 Application.put_env(:phoenix_kit_hello_world, :test_repo_available, repo_available)
 
-# Start minimal PhoenixKit services needed for tests
+# Start minimal PhoenixKit services so the module's runtime dependencies
+# (PubSub topics, ModuleRegistry) resolve during tests.
 {:ok, _pid} = PhoenixKit.PubSub.Manager.start_link([])
 {:ok, _pid} = PhoenixKit.ModuleRegistry.start_link([])
 
 # Exclude integration tests when DB is not available
 exclude = if repo_available, do: [], else: [:integration]
+
+# Force PhoenixKit's URL prefix cache to an empty string for tests so
+# `Paths.index()` etc. produce paths the test router can match. Admin
+# paths always get the default locale ("en") prefix, so our router
+# scope is `/en/admin/hello-world`.
+:persistent_term.put({PhoenixKit.Config, :url_prefix}, "/")
+
+# Start the test Endpoint so Phoenix.LiveViewTest can drive our
+# LiveViews via `live/2` with real URLs. Runs with `server: false`, so
+# no port is opened. Only starts when the test DB is available —
+# without DB, LiveView tests are excluded anyway and an endpoint start
+# would fail on missing Phoenix/Plug deps in a DB-less smoke run.
+if repo_available do
+  {:ok, _} = PhoenixKitHelloWorld.Test.Endpoint.start_link()
+end
 
 ExUnit.start(exclude: exclude)
