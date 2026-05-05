@@ -62,9 +62,17 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
        user_roles: scope && Scope.user_roles(scope),
        is_admin: scope && Scope.admin?(scope),
        module_access: scope && Scope.has_module_access?(scope, "hello_world"),
+       module_enabled: false,
        last_logged_at: nil,
        demo_event_snippet: @demo_event_snippet
      )}
+  end
+
+  # `enabled?/0` reads from the settings table — keep it out of `mount/3`
+  # (which fires on both HTTP and WebSocket) and resolve it once here.
+  @impl true
+  def handle_params(_params, _uri, socket) do
+    {:noreply, assign(socket, :module_enabled, PhoenixKitHelloWorld.enabled?())}
   end
 
   @impl true
@@ -281,9 +289,9 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
               <dd>
                 <span class={[
                   "badge badge-sm",
-                  if(PhoenixKitHelloWorld.enabled?(), do: "badge-success", else: "badge-error")
+                  if(@module_enabled, do: "badge-success", else: "badge-error")
                 ]}>
-                  {to_string(PhoenixKitHelloWorld.enabled?())}
+                  {to_string(@module_enabled)}
                 </span>
               </dd>
             </dl>

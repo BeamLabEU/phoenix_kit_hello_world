@@ -1,3 +1,24 @@
+## 0.1.5 - 2026-04-29
+
+### Added
+- LiveView test infrastructure: in-repo `Test.Endpoint` / `Test.Router` / `Test.Layouts`, `LiveCase` with fake `%Scope{}` plumbing via session, `ActivityLogAssertions` helper, `Hooks.on_mount/4`, and a dedicated test migration creating `phoenix_kit_settings`, `phoenix_kit_activities`, and `uuid_generate_v7()`
+- 25 new tests across the three LiveViews (mount, gettext-wrap regressions, `handle_info/2` catch-all smokes, demo-event end-to-end with activity row assertion)
+- `mix test.setup` / `mix test.reset` aliases and `lazy_html` test-only dep
+- Defensive `handle_info/2` catch-all in all three LiveViews so a stray PubSub broadcast or OTP message can't crash the page with `FunctionClauseError`
+- `phx-disable-with` on the "Log demo event" button to prevent double-logging on double-click
+- AGENTS.md sections: "What This Module Does NOT Have", "Code Organization: Section-Decomposition Pattern", and full Testing infrastructure walk-through
+
+### Changed
+- Decompose `ComponentsLive` 742-line `render/1` into 22 per-section `defp x_section/1` function components for easier navigation; pinned by a section-count test
+- Move `enabled?/0` resolution in `HelloLive` from render-time DB call to `handle_params/3` assign — was hitting `Settings.get_boolean_setting/2` four times per page (mount × render × 2 calls), now once per navigation
+- Wrap user-facing strings in all three LiveViews with `Gettext.gettext(PhoenixKitWeb.Gettext, …)` (status badges, page headings, filter labels, dt labels in the Module Info / Current User cards, next-steps copy, detail-link `title`, "View details", "All events loaded", `phx-disable-with` text)
+- Add `@spec` annotations to all public functions in `PhoenixKitHelloWorld.Paths`
+
+### Fixed
+- `enabled?/0` now also `catch :exit, _` — when a sandbox-using test exits and the next test calls `enabled?/0`, the connection-pool checkout `EXIT`s with `"owner #PID<...> exited"`, which `rescue` doesn't catch (was a 1-in-10 flake)
+- `test_helper.exs` no longer crashes with `ErlangError :enoent` when `psql` isn't on `$PATH` — falls through to the connect probe so integration tests are gracefully excluded
+- Replace tautological "detail-link title is gettext-wrapped" test with a source-grep that actually fails on revert
+
 ## 0.1.4 - 2026-04-11
 
 ### Fixed

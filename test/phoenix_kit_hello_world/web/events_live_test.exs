@@ -43,21 +43,18 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
       assert html =~ "All Actions"
     end
 
-    test "detail-link title is gettext-wrapped (Batch 2 delta)", %{conn: conn} do
-      # The `title=` attribute on the per-entry detail link was a
-      # hardcoded English string before Batch 2; this pins the wrap.
-      # Empty list → no entries rendered, so we assert the title text
-      # is reachable via the *template source* by checking that the
-      # rendered HTML at least contains the `title=` attribute literal
-      # whenever an entry exists. Since we have no fixtures here we
-      # skip the populated assertion; the gettext extractor catches
-      # the new literal during `mix gettext.extract`.
-      {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
-      # Empty state path — no entries → no detail link to inspect.
-      # The pinning lives in compile-time gettext extraction; this
-      # test stays as a smoke that the page still mounts after the
-      # title-attr edit.
-      assert html =~ "No events recorded yet"
+    test "detail-link title literal is wrapped in Gettext.gettext (Batch 2 delta)" do
+      # Empty list → no entries → no detail link rendered, so we can't
+      # assert against rendered HTML. Instead pin the wrap directly by
+      # reading the module source: a regression that drops the wrap
+      # would re-introduce a bare `title="View details"` literal.
+      source = File.read!("lib/phoenix_kit_hello_world/web/events_live.ex")
+
+      refute source =~ ~s(title="View details"),
+             "expected `title=\"View details\"` to be wrapped in Gettext.gettext/2"
+
+      assert source =~
+               ~s|title={Gettext.gettext(PhoenixKitWeb.Gettext, "View details")}|
     end
   end
 
