@@ -83,7 +83,8 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
       metadata: %{"actor_role" => "system", "greeting" => "Hello there!"}
     })
 
-    {:noreply, socket |> put_flash(:info, "Sent — check the bell (and the list below).") |> refresh()}
+    {:noreply,
+     socket |> put_flash(:info, "Sent — check the bell (and the list below).") |> refresh()}
   end
 
   def handle_event("send_custom", _params, socket) do
@@ -313,7 +314,14 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
     |> PhoenixKit.Notifications.recent_for_user(5)
     |> Enum.map(fn n ->
       rendered = Render.render(n)
-      %{uuid: n.uuid, seen_at: n.seen_at, icon: rendered.icon, text: rendered.text, link: rendered.link}
+
+      %{
+        uuid: n.uuid,
+        seen_at: n.seen_at,
+        icon: rendered.icon,
+        text: rendered.text,
+        link: rendered.link
+      }
     end)
   end
 
