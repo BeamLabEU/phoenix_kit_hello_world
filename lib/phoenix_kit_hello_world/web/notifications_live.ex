@@ -209,7 +209,9 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
               <pre phx-no-curly-interpolation class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>metadata: %{
       "notification_text" =&gt; "👋 Custom!",
       "notification_icon" =&gt; "hero-sparkles",
-      "notification_link" =&gt; "/admin/hello-world"
+      # ALWAYS build the link via Routes.path/1 so it carries the
+      # URL prefix + locale — never a raw "/admin/..." path.
+      "notification_link" =&gt; Paths.index()
     }</code></pre>
             </div>
           </div>

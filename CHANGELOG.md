@@ -1,3 +1,11 @@
+## 0.1.8 - 2026-06-22
+
+### Fixed
+- Notifications tutorial: the displayed `notification_link` example used a raw
+  `"/admin/hello-world"` path; it now uses `Paths.index()` with a note that
+  notification links must go through `Routes.path/1` for URL prefix + locale.
+  (The live demo code was already correct.)
+
 ## 0.1.7 - 2026-06-17
 
 ### Added
