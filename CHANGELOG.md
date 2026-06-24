@@ -1,3 +1,13 @@
+## 0.1.9 - 2026-06-24
+
+### Added
+- **`resolve_comment_resources/1` teaching example.** Documents how a module
+  makes its resources clickable in the comments moderation admin (with
+  `phoenix_kit_comments`): return `%{uuid => %{title, path, thumb_url?}}` with a
+  **raw** path (comments applies `Routes.path/1` itself — don't pre-prefix), and
+  register via `config :phoenix_kit, :comment_resource_handlers`. Also notes the
+  no-code path-template alternative (Settings → Comments → Resource Paths).
+
 ## 0.1.8 - 2026-06-22
 
 ### Fixed

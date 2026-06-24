@@ -136,7 +136,7 @@ defmodule PhoenixKitHelloWorld do
 
   @impl PhoenixKit.Module
   @doc "Version string. Shown on the admin Modules page."
-  def version, do: "0.1.8"
+  def version, do: "0.1.9"
 
   @impl PhoenixKit.Module
   @doc """
@@ -266,6 +266,51 @@ defmodule PhoenixKitHelloWorld do
       }
     ]
   end
+
+  @doc """
+  Optional integration with `phoenix_kit_comments`: make this module's resources
+  clickable in the comments moderation admin.
+
+  If your module owns things that users comment on (the `resource_type` you pass
+  to the comments component), implement `resolve_comment_resources/1` to turn a
+  list of resource uuids into display chips. Return `%{uuid => info}` where
+  `info` is:
+
+    * `:title` — the chip label (e.g. the record's name)
+    * `:path`  — a **raw** app path, e.g. `"/admin/widgets/\#{uuid}"`. The comments
+      module runs it through `PhoenixKit.Utils.Routes.path/1` itself (prefix +
+      locale), so do NOT pre-apply the prefix here or the link double-prefixes.
+    * `:thumb_url` — optional image URL for a thumbnail (otherwise a type badge
+      shows). Omit the key when there's none.
+
+  Then register the handler so comments dispatches `"hello_world"` resources to
+  this module:
+
+      # config/config.exs
+      config :phoenix_kit, :comment_resource_handlers, %{
+        "hello_world" => PhoenixKitHelloWorld
+      }
+
+  A real implementation queries your schema:
+
+      def resolve_comment_resources(uuids) do
+        import Ecto.Query
+
+        from(w in Widget, where: w.uuid in ^uuids, select: {w.uuid, w.name})
+        |> Repo.all()
+        |> Map.new(fn {uuid, name} ->
+          {uuid, %{title: name, path: "/admin/widgets/\#{uuid}"}}
+        end)
+      rescue
+        _ -> %{}
+      end
+
+  Hello World has no resources of its own, so this returns an empty map.
+  Hosts can also link a type with **no code** via Settings → Comments →
+  Resource Paths (a path template like `/admin/widgets/:uuid`).
+  """
+  @spec resolve_comment_resources([binary()]) :: %{binary() => map()}
+  def resolve_comment_resources(_resource_uuids), do: %{}
 
   # ===========================================================================
   # Route module (for multi-page modules)
