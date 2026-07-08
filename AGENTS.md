@@ -192,6 +192,26 @@ lib/phoenix_kit_hello_world/
     └── components_live.ex                       # PhoenixKit core components showcase
 ```
 
+## The reference dashboard widget
+
+`Web.HelloWidget` + the `phoenix_kit_widgets/0` definition in
+`lib/phoenix_kit_hello_world.ex` are the **copy-from reference** for
+contributing widgets to `phoenix_kit_dashboards`. The single definition uses
+every field of the plain-map provider contract (key, name/description/icon,
+`module_key` gating, component, category, default/min/max sizes,
+`refresh_interval`, three `views` each with its own `min_size`, and a
+`settings_schema` exercising every field type incl. both select-option
+shapes). The component demonstrates the render side: the `settings` / `view` /
+`size` / `scope` assigns, live-refresh state that persists across host ticks
+(the counter view), scope-driven personalization, compact single-row
+rendering, defensive reads (a widget must never crash the host dashboard) —
+and a `"contract"` debug view that prints the received assigns verbatim on a
+real dashboard. No dependency on the dashboards package: the contract is
+duck-typed and one-way. Tests: `test/.../web/hello_widget_test.exs` (pure
+`render_component`, no DB — this widget renders from assigns only, which is
+also why it skips the in-component `enabled?/0` guard the data-querying
+projects widgets need).
+
 ## Critical Conventions
 
 - **Module key** must be consistent across all callbacks: lowercase with underscores (`"hello_world"`)

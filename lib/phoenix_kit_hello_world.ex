@@ -246,6 +246,84 @@ defmodule PhoenixKitHelloWorld do
   @doc "OTP apps whose templates Tailwind should scan for CSS classes."
   def css_sources, do: [:phoenix_kit_hello_world]
 
+  # ── Dashboard widgets ──────────────────────────────────────────────────────
+  #
+  # Any PhoenixKit module can contribute widgets to `phoenix_kit_dashboards` by
+  # exporting a zero-arity `phoenix_kit_widgets/0` returning a list of PLAIN
+  # MAPS. This is a duck-typed, ONE-WAY contract: no dependency on the
+  # dashboards package, no behaviour, no `@impl` — its Registry discovers the
+  # function at runtime and normalizes each map into its own struct.
+  #
+  # The single definition below deliberately uses EVERY field of the contract;
+  # the component (`Web.HelloWidget`) demonstrates the render side. Copy both
+  # when adding widgets to your module.
+  @doc false
+  def phoenix_kit_widgets do
+    [
+      %{
+        # Globally-unique key, conventionally "<module_key>.<widget>".
+        key: "hello_world.hello",
+        # Catalog card text. Plain strings — the dashboards builder translates
+        # them dynamically at render when a translation exists.
+        name: "Hello world",
+        description: "The reference widget — every widget API capability in one card.",
+        # Any Heroicon name (core's <.icon> set).
+        icon: "hero-hand-raised",
+        # Gates visibility on THIS module being enabled + permitted for the
+        # viewer. Omit it for a widget that should always be offered.
+        module_key: "hello_world",
+        # The Phoenix.LiveComponent that renders instances of this widget.
+        component: PhoenixKitHelloWorld.Web.HelloWidget,
+        # Groups the catalog entry (the drawer also sections by provider).
+        category: "Hello World",
+        # Cell spans: default when added; min/max clamp resizing. Each VIEW may
+        # tighten the minimum further (below) — the builder floors per view.
+        default_size: %{w: 3, h: 2},
+        min_size: %{w: 2, h: 1},
+        max_size: %{w: 8, h: 4},
+        # Milliseconds between host refresh ticks (floored to 1000). Each tick
+        # re-runs the component's update/2; omit for a static widget.
+        refresh_interval: 5_000,
+        # Named render variants. The instance stores the selected key and the
+        # host passes it as the `view` assign. A view's own min_size wins over
+        # the widget-level minimum while that view is selected.
+        views: [
+          %{key: "card", name: "Card", min_size: %{w: 2, h: 1}},
+          %{key: "counter", name: "Counter (live)", min_size: %{w: 2, h: 2}},
+          %{key: "contract", name: "Contract (debug)", min_size: %{w: 3, h: 2}}
+        ],
+        # One entry per settings-form field. Types: :string, :text, :number,
+        # :boolean, :select. Select options are plain strings OR
+        # {label, value} tuples (store machine keys, show human labels).
+        settings_schema: [
+          %{key: "greeting", type: :string, label: "Greeting", default: "Hello"},
+          %{key: "note", type: :text, label: "Note", default: ""},
+          %{key: "step", type: :number, label: "Counter step", default: "1"},
+          %{key: "show_size", type: :boolean, label: "Show size", default: true},
+          %{
+            key: "tone",
+            type: :select,
+            label: "Tone",
+            options: [
+              {"Default", ""},
+              {"Primary", "primary"},
+              {"Success", "success"},
+              {"Warning", "warning"}
+            ],
+            default: ""
+          },
+          %{
+            key: "punctuation",
+            type: :select,
+            label: "Punctuation",
+            options: ["!", ".", "?!"],
+            default: "!"
+          }
+        ]
+      }
+    ]
+  end
+
   @impl PhoenixKit.Module
   @doc """
   Notification types this module contributes.
