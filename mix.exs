@@ -80,7 +80,7 @@ defmodule PhoenixKitHelloWorld.MixProject do
   defp deps do
     [
       # PhoenixKit provides the Module behaviour and Settings API.
-      pk_dep(:phoenix_kit, "~> 1.7"),
+      pk_dep(:phoenix_kit, "~> 1.7.189"),
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.1"},

@@ -1549,6 +1549,39 @@ phoenix_kit_my_module_categories
 
 Never use generic names like `items` or `posts` — another module or the parent app might use them.
 
+### Ecto schemas
+
+Every table-backed schema starts with the same two lines:
+
+```elixir
+defmodule MyPhoenixKitModule.Schemas.Item do
+  use Ecto.Schema
+  use PhoenixKit.SchemaPrefix   # core >= 1.7.189
+  import Ecto.Changeset
+
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+  @foreign_key_type UUIDv7
+
+  schema "phoenix_kit_my_module_items" do
+    field :name, :string
+    timestamps(type: :utc_datetime)
+  end
+end
+```
+
+`use PhoenixKit.SchemaPrefix` is load-bearing: PhoenixKit supports installing
+into a named Postgres schema (`mix phoenix_kit.install --prefix "auth"`), and
+the migrations create your tables inside that schema. This line makes your
+queries target it too — without it they resolve via the connection's
+`search_path`, which works on public installs and silently breaks on prefixed
+ones. With no prefix configured it compiles to nil (zero behavior change), so
+never omit it.
+
+A fully-commented copyable template lives at
+`lib/phoenix_kit_hello_world/schemas/example_item.ex`, and
+`test/schema_prefix_conformance_test.exs` (also part of this template) scans
+`lib/` so a schema can't silently skip the attribute — copy both.
+
 ### Versioned migrations
 
 Use the **versioned migration** system for database tables. This lets users auto-upgrade their database schema when they update your dep — no manual migration files needed.

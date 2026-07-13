@@ -16,7 +16,7 @@ This is the canonical template — its job is to demonstrate the minimum viable 
 
 - **No context module** — there is no `PhoenixKitHelloWorld.HelloWorld` business-logic context. Pure presentation; the only "operation" is logging a demo activity event from `HelloLive`. Larger modules (locations, catalogue) add a context module.
 - **No Errors dispatcher** — there are no error-returning context functions, so no `PhoenixKitHelloWorld.Errors` atom-to-gettext module. When you build a real module that returns `{:error, :something}` shapes, copy `phoenix_kit_locations/lib/phoenix_kit_locations/errors.ex` as the reference.
-- **No Ecto schemas** — no DB-backed data of its own. Larger modules add `lib/<module>/schemas/`.
+- **No Ecto schemas** — no DB-backed data of its own. Larger modules add `lib/<module>/schemas/`; the copyable all-comments template (UUIDv7 PK + `use PhoenixKit.SchemaPrefix` + naming/timestamps conventions) is `lib/phoenix_kit_hello_world/schemas/example_item.ex`, guarded by `test/schema_prefix_conformance_test.exs` — copy both when adding your first schema.
 - **No production migrations** — modules with DB tables get them via core `phoenix_kit`'s versioned migrations (V90+ scheme), not in their own repo.
 - **No `actor_opts/1` keyword-list helper** — `HelloLive` uses a simpler `actor_uuid/1` (returns the UUID directly) because the `Activity.log/1` map embeds the value directly. The `actor_opts/1` form returning `[actor_uuid: uuid]` shows up in modules that thread it through context functions accepting `opts \\ []`.
 
