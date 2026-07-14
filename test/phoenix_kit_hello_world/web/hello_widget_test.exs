@@ -26,7 +26,8 @@ defmodule PhoenixKitHelloWorld.Web.HelloWidgetTest do
       assert Code.ensure_loaded?(w.component)
       assert %{w: _, h: _} = w.default_size
       assert %{w: _, h: _} = w.min_size
-      assert %{w: _, h: _} = w.max_size
+      # No max_size: the dashboards lattice ignores it (the user owns the box).
+      refute Map.has_key?(w, :max_size)
       assert w.refresh_interval >= 1000
 
       # Three views, each with its own min_size floor.

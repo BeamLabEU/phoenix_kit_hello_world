@@ -138,7 +138,7 @@ defmodule PhoenixKitHelloWorldTest do
       version = PhoenixKitHelloWorld.version()
       assert is_binary(version)
       # Compare against mix.exs so version bumps can't silently break this test.
-    assert version == Mix.Project.config()[:version]
+      assert version == Mix.Project.config()[:version]
     end
   end
 
