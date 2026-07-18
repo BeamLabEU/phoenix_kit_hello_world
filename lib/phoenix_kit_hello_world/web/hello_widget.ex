@@ -88,7 +88,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloWidget do
         <span class="ml-auto badge badge-ghost badge-xs">{@view}</span>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-auto">
+      <div class="min-h-0 flex-1 overflow-hidden">
         <%!-- view "card": settings-driven greeting (string/text/select settings) --%>
         <div :if={@view == "card"} class="flex h-full flex-col items-center justify-center gap-1 text-center">
           <p class={["font-semibold", @tone, if(@compact, do: "text-lg", else: "text-2xl")]}>

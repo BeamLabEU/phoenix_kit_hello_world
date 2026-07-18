@@ -276,11 +276,12 @@ defmodule PhoenixKitHelloWorld do
         component: PhoenixKitHelloWorld.Web.HelloWidget,
         # Groups the catalog entry (the drawer also sections by provider).
         category: "Hello World",
-        # Cell spans: default when added; min/max clamp resizing. Each VIEW may
-        # tighten the minimum further (below) — the builder floors per view.
-        default_size: %{w: 3, h: 2},
-        min_size: %{w: 2, h: 1},
-        max_size: %{w: 8, h: 4},
+        # Cell spans in the dashboards LATTICE units (25px nominal square
+        # cells; a screenful is e.g. 64x36): default when added; min floors
+        # resizing. There is no max — the user owns the box size and widget
+        # content self-fits. Each VIEW may raise the minimum further (below).
+        default_size: %{w: 12, h: 8},
+        min_size: %{w: 8, h: 4},
         # Milliseconds between host refresh ticks (floored to 1000). Each tick
         # re-runs the component's update/2; omit for a static widget.
         refresh_interval: 5_000,
@@ -288,9 +289,9 @@ defmodule PhoenixKitHelloWorld do
         # host passes it as the `view` assign. A view's own min_size wins over
         # the widget-level minimum while that view is selected.
         views: [
-          %{key: "card", name: "Card", min_size: %{w: 2, h: 1}},
-          %{key: "counter", name: "Counter (live)", min_size: %{w: 2, h: 2}},
-          %{key: "contract", name: "Contract (debug)", min_size: %{w: 3, h: 2}}
+          %{key: "card", name: "Card", min_size: %{w: 8, h: 4}},
+          %{key: "counter", name: "Counter (live)", min_size: %{w: 8, h: 8}},
+          %{key: "contract", name: "Contract (debug)", min_size: %{w: 12, h: 8}}
         ],
         # One entry per settings-form field. Types: :string, :text, :number,
         # :boolean, :select. Select options are plain strings OR
