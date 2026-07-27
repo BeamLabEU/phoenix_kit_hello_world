@@ -80,7 +80,10 @@ defmodule PhoenixKitHelloWorld.MixProject do
   defp deps do
     [
       # PhoenixKit provides the Module behaviour and Settings API.
-      pk_dep(:phoenix_kit, "~> 1.7.189"),
+      # 1.7.214+ required: Scope.can_access_admin_area?/1 (the rename of the
+      # now-`@deprecated` Scope.admin?/1) — an older core has no such function,
+      # so this is an UndefinedFunctionError at runtime, not a warning.
+      pk_dep(:phoenix_kit, "~> 1.7.214"),
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.1"},

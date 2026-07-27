@@ -60,7 +60,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
        page_title: Gettext.gettext(PhoenixKitWeb.Gettext, "Hello World"),
        user_email: scope && scope.user && scope.user.email,
        user_roles: scope && Scope.user_roles(scope),
-       is_admin: scope && Scope.admin?(scope),
+       is_admin: scope && Scope.can_access_admin_area?(scope),
        module_access: scope && Scope.has_module_access?(scope, "hello_world"),
        module_enabled: false,
        last_logged_at: nil,
