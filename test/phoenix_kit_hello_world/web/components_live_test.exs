@@ -11,17 +11,44 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
   use PhoenixKitHelloWorld.LiveCase
 
   describe "mount" do
-    test "renders the page heading and section count (PR #12 pinning test)", %{conn: conn} do
+    test "renders the section count (PR #12 pinning test)", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/en/admin/hello-world/components")
 
-      assert html =~ "PhoenixKit Components"
-
       # `<.showcase_section>` renders `<section class="card bg-base-100 shadow-xl">`.
-      # The Phase 1 decomposition emits exactly 22 of these. If a section is
-      # accidentally removed from `render/1` (or its `defp x_section/1` is
-      # deleted), this count drops and the test fails.
+      # The Phase 1 decomposition emitted 22 of these; issue #26 added the
+      # three wrapped counterparts (table_default, pagination, empty_state)
+      # for a total of 25. If a section is accidentally removed from
+      # `render/1` (or its `defp x_section/1` is deleted), this count drops
+      # and the test fails.
       section_count = count_substring(html, ~s|<section class="card bg-base-100 shadow-xl">|)
-      assert section_count == 22, "expected 22 showcase sections, found #{section_count}"
+      assert section_count == 25, "expected 25 showcase sections, found #{section_count}"
+    end
+
+    test "renders no page-level header or width cap (issue #23)", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/en/admin/hello-world/components")
+
+      # `page_title` is rendered once by the admin layout. The old
+      # `page_header/1` component rendered a second, differently-worded title
+      # in the body; it is gone, and the page wrapper is no longer capped.
+      refute html =~ "PhoenixKit Components"
+      assert html =~ ~s|<div class="flex flex-col px-4 py-6 gap-6">|
+    end
+
+    test "showcases the wrapped core components (issue #26)", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/en/admin/hello-world/components")
+
+      # Each raw daisyUI section now has a core-component counterpart after
+      # the divider. Assert on markup only the core component emits.
+      assert html =~ "Table — core table_default"
+      assert html =~ "Pagination — core pagination"
+      assert html =~ "Empty state — core empty_state"
+
+      # `<.table_default toggleable>` renders the card/table toggle wrapper.
+      assert html =~ ~s|id="demo-people-table"|
+      # `<.pagination>` renders join-item patch links, not plain buttons.
+      assert html =~ ~r/<a[^>]*class="join-item btn btn-sm[^"]*"/
+      # `<.empty_state variant="featured">` renders the dashed-border card.
+      assert html =~ "border-2 border-dashed"
     end
 
     test "renders all major category labels", %{conn: conn} do
@@ -154,7 +181,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
 
       html = render(view)
       assert is_binary(html)
-      assert html =~ "PhoenixKit Components"
+      assert html =~ "PhoenixKit Core Components"
     end
   end
 

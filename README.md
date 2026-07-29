@@ -210,14 +210,17 @@ defmodule MyPhoenixKitModule.Web.IndexLive do
   use PhoenixKitWeb, :live_view
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :page_title, "My Module")}
+    {:ok,
+     assign(socket,
+       page_title: "My Module",
+       page_subtitle: "What this page is for"
+     )}
   end
 
   def render(assigns) do
     ~H"""
-    <div class="px-4 py-6">
-      <h1 class="text-2xl font-bold">My Module</h1>
-      <p class="text-base-content/70 mt-2">Your content here.</p>
+    <div class="flex flex-col px-4 py-6 gap-6">
+      <p class="text-base-content/70">Your content here.</p>
     </div>
     """
   end
@@ -225,6 +228,13 @@ end
 ```
 
 The admin layout (sidebar, header, theme) is applied automatically. You don't need to wrap anything in `LayoutWrapper`.
+
+Two layout rules are worth internalizing now, because they're easy to get wrong and hard to un-see afterwards:
+
+- **The layout renders `page_title`/`page_subtitle` in the page header — so your template renders no page heading of its own.** Adding an `<h1>My Module</h1>` to the template puts two titles on screen, and in practice they drift apart in wording.
+- **No page-level width cap.** The page-root `<div>` gets spacing only. No `container`, no page-level `max-w-*` — the admin layout already owns page width. (A `max-w-*` scoped to one form card is fine.)
+
+See "UI & Layout Conventions" in [AGENTS.md](AGENTS.md) for the full list.
 
 ### 5. Add to parent app
 
@@ -659,9 +669,27 @@ inside the admin `live_session` with the admin layout applied. This happens at c
 
 ### Admin layout is auto-applied
 
-PhoenixKit's `on_mount` hook detects external plugin LiveViews and automatically applies the admin layout (sidebar, header, theme). **Do not** wrap your templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout>` — this causes double sidebars. Just render your inner content directly.
+PhoenixKit's `on_mount` hook detects external plugin LiveViews and automatically applies the admin layout (sidebar, header, theme).
 
-This only applies to admin LiveViews. Public controller templates (rendered via `Phoenix.Controller.render/2`) still need the wrapper if they use the app layout.
+There are two supported shapes here. Pick one — don't mix them.
+
+**1. Auto-applied chrome (the default — what this template does).** Assign `page_title` / `page_subtitle` in `mount/3` and render your inner content directly. Do not call `<PhoenixKitWeb.Components.LayoutWrapper.app_layout>` yourself; the layout already did.
+
+**2. Self-wrapped layout (opt-out).** A module that needs to own the wrapper — to pass `app_layout` attributes the automatic call doesn't set — registers an `on_mount` that points `socket.private[:live_layout]` at the host's plain layout, then calls `app_layout` from its own `render/1`:
+
+```elixir
+on_mount({__MODULE__, :self_wrapped_layout})
+
+def on_mount(:self_wrapped_layout, _params, _session, socket) do
+  {:cont, put_in(socket.private[:live_layout], {MyAppWeb.Layouts, :app})}
+end
+```
+
+`phoenix_kit_warehouse`'s `stock_live.ex` and `phoenix_kit_manufacturing`'s `machines_live.ex` both ship this pattern.
+
+A stray `app_layout` call — pattern 2's `render/1` without pattern 2's `on_mount` — no longer produces two sidebars. Core's `LayoutWrapper.app_layout/1` detects that admin chrome was already rendered earlier in the same render tree, short-circuits to `render_slot(@inner_block)`, and logs a `:debug` message naming the fix. You get one sidebar and a log line rather than a broken page.
+
+This all applies to admin LiveViews. Public controller templates (rendered via `Phoenix.Controller.render/2`) still need the wrapper if they use the app layout.
 
 ### Route module for complex routes
 
@@ -1194,6 +1222,18 @@ end
 
 External modules **cannot inject files into the parent app's asset pipeline** (`app.js`). All JavaScript must be delivered inside your LiveView templates.
 
+### First: check whether core already has the hook
+
+Hooks that ship in PhoenixKit's own JS bundle are registered on **every** page load, so they work no matter how the page is reached. A hook you deliver from your own template does not have that property (see the rules below). Before writing one, check `PhoenixKitHooks` in core — e.g. `InfiniteScroll`, which pairs with `<.load_more infinite>`:
+
+```elixir
+import PhoenixKitWeb.Components.Core.Pagination, only: [load_more: 1]
+
+<.load_more id="events-load-more" loaded={@loaded} total={@total} infinite />
+```
+
+`events_live.ex` in this template uses exactly that — auto-load on scroll plus a manual "Load more" fallback button, and no JS of its own. Only when core has nothing suitable do you deliver your own, using the patterns below.
+
 ### Simple inline hooks
 
 For small amounts of JS, use inline `<script>` tags. PhoenixKit's `app.js` collects hooks from `window.PhoenixKitHooks` when creating the LiveSocket.
@@ -1236,7 +1276,7 @@ Then in your LiveView template:
 ### Key rules for inline JS
 
 - Register hooks on `window.PhoenixKitHooks` — PhoenixKit spreads this into the LiveSocket
-- Pages using hooks must be entered via **full page load** (`redirect/2` or plain `<a href>`), not `navigate/2`, so the inline script executes
+- A page whose hook is registered by an inline `<script>` in its own `render/1` must be entered via **full page load** (`redirect/2` or plain `<a href>`), not `navigate/2`, so that script executes. This constraint bites harder than it sounds: in-app sidebar links and `<.link navigate={...}>` are all patched navigation, so the hook silently binds to nothing and the feature does nothing, with no error. Prefer a core hook (above) or the base64 delivery below, and reserve inline `<script>` for pages that genuinely are only reached by full load.
 - Never assume access to `node_modules`, `esbuild`, or the parent app's JS build
 
 ### Base64-encoded JS delivery (for large scripts)
@@ -1466,12 +1506,18 @@ UtilsDate.format_datetime_with_user_format(dt)   # uses admin settings for forma
 
 ### UI guidelines
 
+PhoenixKit's UI targets **daisyUI 5** — minimum **5.6.0**, verified against 5.6.17. daisyUI lives in the **host app** (`assets/vendor/daisyui.js`), not in PhoenixKit; core ships themes only. `mix phoenix_kit.doctor` warns when the host's copy is older than the minimum, and `PhoenixKit.Install.DaisyUI.minimum_version/0` is the authoritative value.
+
 - Use **daisyUI semantic classes** — `bg-base-100`, `text-base-content`, `btn btn-primary`, `badge badge-success`
 - Never hardcode colors like `bg-white`, `text-gray-500`, etc. — these break with themes
 - Use `text-base-content/70` for muted text
+- **Don't use daisyUI v4 classes that v5 removed** ([upgrade guide](https://daisyui.com/docs/upgrade/)): `btn-group` (use `join` + `join-item`), `label-text` (plain text inside `<label class="label">`), and the `*-bordered` family — `input-bordered`, `select-bordered`, `textarea-bordered`, `file-input-bordered` — which are unnecessary because those elements have a border by default in v5
+- daisyUI 5 needs the wrapper `<label class="select">` pattern around a bare `<select>` — the core `<.select>` component handles this, which is one more reason to use it over raw HTML
 - The admin layout is applied automatically for plugin LiveViews — just render your content
+- **Render no page-level heading and no page-level width cap** — `page_title`/`page_subtitle` are rendered once by the layout, and the layout owns page width. No `container`, no page-root `max-w-*`
 - Use `card bg-base-100 shadow-xl` for card containers
 - Use `badge badge-sm` for status indicators
+- Prefer core components over hand-rolled markup: `<.table_default>`, `<.pagination>` / `<.load_more>`, `<.empty_state>`, and the core form primitives. The Components showcase pairs each raw daisyUI section with its core counterpart
 
 ## Cross-module integration
 
@@ -2439,7 +2485,7 @@ Make sure you're using `update_boolean_setting_with_module/3` (not `update_setti
 
 ### JS hooks not registering
 
-1. **Check the page is entered via full page load** — `redirect/2` or `<a href>`, not `navigate/2`
+1. **Check how the hook is delivered** — a hook registered by an inline `<script>` in `render/1` only exists after a full page load (`redirect/2` or `<a href>`), never after `navigate/2`. If the page is reachable from the sidebar or any `<.link navigate={...}>`, that's the bug: switch to a core hook or the base64 delivery pattern above
 2. **Check `window.PhoenixKitHooks`** — open browser console, verify your hook is registered
 3. **Check element has `phx-hook`** — must match the hook name exactly
 4. **Check element has a unique `id`** — required for hooks to work
