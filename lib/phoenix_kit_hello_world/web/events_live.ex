@@ -12,7 +12,11 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
   1. Uses `stream/4` with a custom `dom_id:` because `PhoenixKit.Activity.Entry`
      uses `:uuid` as the primary key (not `:id`).
   2. Reloads on filter change via `stream(..., reset: true)`.
-  3. Infinite scroll via an IntersectionObserver hook on a sentinel div.
+  3. Infinite scroll via core's `<.load_more infinite>` footer, which renders
+     the `InfiniteScroll` hook plus a manual "Load more" fallback button. The
+     hook ships in PhoenixKit's own JS bundle, so it is registered on every
+     page load — unlike a per-page inline `<script>`, which never executes
+     when the page is reached through `navigate/2`.
   4. All PhoenixKit.Activity calls are guarded with `Code.ensure_loaded?/1`
      so the module works even on hosts without activity logging.
   """
@@ -21,7 +25,10 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
 
   require Logger
 
+  import PhoenixKitWeb.Components.Core.EmptyState, only: [empty_state: 1]
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
+  import PhoenixKitWeb.Components.Core.Pagination, only: [load_more: 1]
+  import PhoenixKitWeb.Components.Core.Select, only: [select: 1]
 
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitHelloWorld.Paths
@@ -34,7 +41,13 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
      socket
      |> assign(
        page_title: Gettext.gettext(PhoenixKitWeb.Gettext, "Events"),
+       page_subtitle:
+         Gettext.gettext(
+           PhoenixKitWeb.Gettext,
+           "Events logged by the Hello World module. Click the \"Log demo event\" button on the Overview page to add entries."
+         ),
        total: 0,
+       loaded: 0,
        page: 1,
        has_more: false,
        loading: false,
@@ -123,7 +136,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
 
   defp reset_and_load(socket) do
     socket
-    |> assign(:page, 1)
+    |> assign(page: 1, loaded: 0)
     |> stream(:entries, [], reset: true, dom_id: &"entry-#{&1.uuid}")
     |> load_next_page()
   end
@@ -143,6 +156,10 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
       |> stream(:entries, result.entries)
       |> assign(
         total: result.total,
+        # `<.load_more>` needs the number of rows actually rendered. The stream
+        # is append-only between resets, so accumulate rather than deriving it
+        # from `page * @per_page` (which overshoots on a short final page).
+        loaded: socket.assigns.loaded + length(result.entries),
         page: socket.assigns.page + 1,
         has_more: result.page < result.total_pages,
         loading: false
@@ -226,44 +243,29 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex flex-col mx-auto max-w-5xl px-4 py-6 gap-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-2xl font-bold">{Gettext.gettext(PhoenixKitWeb.Gettext, "Activity Events")}</h2>
-          <p class="text-sm text-base-content/60 mt-1">
-            {Gettext.gettext(
-              PhoenixKitWeb.Gettext,
-              "Events logged by the Hello World module. Click the \"Log demo event\" button on the Overview page to add entries."
-            )}
-          </p>
-        </div>
-        <div class="text-sm text-base-content/60">
-          {Gettext.gettext(PhoenixKitWeb.Gettext, "%{count} events", count: @total)}
-        </div>
-      </div>
-
+    <div class="flex flex-col px-4 py-6 gap-4">
       <%!-- Filters --%>
       <div class="bg-base-200 rounded-lg p-3">
         <.form for={%{}} phx-change="filter" class="flex flex-wrap gap-3 items-end">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text text-xs">{Gettext.gettext(PhoenixKitWeb.Gettext, "Action")}</span>
-            </label>
-            <label class="select select-bordered select-sm">
-              <select name="filter[action]">
-                <option value="">{Gettext.gettext(PhoenixKitWeb.Gettext, "All Actions")}</option>
-                <%= for action <- @action_types do %>
-                  <option value={action} selected={@filter_action == action}>
-                    {action}
-                  </option>
-                <% end %>
-              </select>
-            </label>
+          <div class="w-56">
+            <.select
+              id="filter-action"
+              name="filter[action]"
+              label={Gettext.gettext(PhoenixKitWeb.Gettext, "Action")}
+              value={@filter_action}
+              options={@action_types}
+              prompt={Gettext.gettext(PhoenixKitWeb.Gettext, "All Actions")}
+              class="select-sm"
+            />
           </div>
 
           <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
             {Gettext.gettext(PhoenixKitWeb.Gettext, "Clear")}
           </button>
+
+          <div class="ml-auto text-sm text-base-content/60">
+            {Gettext.gettext(PhoenixKitWeb.Gettext, "%{count} events", count: @total)}
+          </div>
         </.form>
       </div>
 
@@ -331,56 +333,29 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
       </div>
 
       <%!-- Empty state --%>
-      <%= if @total == 0 and not @loading do %>
-        <div class="text-center py-12 text-base-content/60">
-          <.icon name="hero-bell-slash" class="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>{Gettext.gettext(PhoenixKitWeb.Gettext, "No events recorded yet")}</p>
-          <p class="text-xs mt-1">
-            {Gettext.gettext(
-              PhoenixKitWeb.Gettext,
-              "Head back to the Overview page and click \"Log demo event\"."
-            )}
-          </p>
-        </div>
-      <% end %>
-
-      <%!-- Infinite scroll sentinel --%>
-      <%= if @has_more do %>
-        <div id="load-more-sentinel" phx-hook="HelloWorldInfiniteScroll" class="py-4">
-          <div class="flex justify-center">
-            <span class="loading loading-spinner loading-sm text-base-content/30"></span>
-          </div>
-        </div>
-      <% end %>
-
-      <%= if not @has_more and @total > 0 do %>
-        <div class="text-center text-xs text-base-content/40 py-2">
-          {Gettext.gettext(PhoenixKitWeb.Gettext, "All events loaded")}
-        </div>
-      <% end %>
-    </div>
-
-    <script>
-      window.PhoenixKitHooks = window.PhoenixKitHooks || {};
-      window.PhoenixKitHooks.HelloWorldInfiniteScroll = window.PhoenixKitHooks.HelloWorldInfiniteScroll || {
-        mounted() {
-          this.observer = new IntersectionObserver((entries) => {
-            const entry = entries[0];
-            if (entry.isIntersecting) {
-              this.pushEvent("load_more", {});
-            }
-          }, { rootMargin: "200px" });
-          this.observer.observe(this.el);
-        },
-        updated() {
-          this.observer.disconnect();
-          this.observer.observe(this.el);
-        },
-        destroyed() {
-          this.observer.disconnect();
+      <.empty_state
+        :if={@total == 0 and not @loading}
+        icon="hero-bell-slash"
+        title={Gettext.gettext(PhoenixKitWeb.Gettext, "No events recorded yet")}
+        description={
+          Gettext.gettext(
+            PhoenixKitWeb.Gettext,
+            "Head back to the Overview page and click \"Log demo event\"."
+          )
         }
-      };
-    </script>
+      />
+
+      <%!-- Auto-load on scroll (core's InfiniteScroll hook) + manual fallback.
+           The hook lives in PhoenixKit's own JS bundle, so it is registered
+           whether this page is reached by full page load or by `navigate/2`. --%>
+      <.load_more
+        id="events-load-more"
+        loaded={@loaded}
+        total={@total}
+        infinite
+        noun_plural={Gettext.gettext(PhoenixKitWeb.Gettext, "events")}
+      />
+    </div>
     """
   end
 end
