@@ -22,7 +22,6 @@ support_dir = Path.expand("support", __DIR__)
 
 [
   "test_repo.ex",
-  "migration_runner.ex",
   "test_layouts.ex",
   "hooks.ex",
   "test_router.ex",
@@ -78,19 +77,6 @@ repo_available =
       # the `uuid_generate_v7()` function — all owned by core's V03 /
       # V40 / V90 migrations. Schema drift impossible by construction.
       PhoenixKit.Migration.ensure_current(PhoenixKitHelloWorld.Test.Repo, log: false)
-
-      # Then this module's OWN migrations — the table it owns is created by
-      # its own coordinator, exactly as `mix phoenix_kit.update` does it in a
-      # host app. The microsecond version means the wrapper is re-run on every
-      # boot instead of being short-circuited by a stale `schema_migrations`
-      # row; the coordinator itself is idempotent, so a re-run is a no-op once
-      # the DB is at `current_version/0`.
-      Ecto.Migrator.up(
-        PhoenixKitHelloWorld.Test.Repo,
-        :os.system_time(:microsecond),
-        PhoenixKitHelloWorld.Test.MigrationRunner,
-        log: false
-      )
 
       Ecto.Adapters.SQL.Sandbox.mode(PhoenixKitHelloWorld.Test.Repo, :manual)
       true

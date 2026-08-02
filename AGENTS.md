@@ -17,10 +17,11 @@ This is the canonical template — its job is to demonstrate the minimum viable 
 
 - **No context module** — there is no `PhoenixKitHelloWorld.HelloWorld` business-logic context. Pure presentation; the only "operation" is logging a demo activity event from `HelloLive`. Larger modules (locations, catalogue) add a context module.
 - **No Errors dispatcher** — there are no error-returning context functions, so no `PhoenixKitHelloWorld.Errors` atom-to-gettext module. When you build a real module that returns `{:error, :something}` shapes, copy `phoenix_kit_locations/lib/phoenix_kit_locations/errors.ex` as the reference.
-- **Only one Ecto schema** — `PhoenixKitHelloWorld.Schemas.Item` exists so the module-owned migration chain is real and testable, not to model a domain. It carries the copyable conventions (UUIDv7 PK named `uuid` + `use PhoenixKit.SchemaPrefix` + table naming + timestamps matching the migration), guarded by `test/schema_prefix_conformance_test.exs`. Larger modules grow `lib/<module>/schemas/` from here.
+- **No Ecto schemas** — no DB-backed data of its own. Larger modules add `lib/<module>/schemas/`; the copyable all-comments template (UUIDv7 PK + `use PhoenixKit.SchemaPrefix` + naming/timestamps conventions) is `lib/phoenix_kit_hello_world/schemas/example_item.ex`, guarded by `test/schema_prefix_conformance_test.exs` — copy both when adding your first schema.
+- **No migrations** — a template has no business creating a table in every host that installs it, so `migration_module/0` stays at its `nil` default. The pattern a real module follows is module-owned migrations, and the copyable all-comments coordinator is `lib/phoenix_kit_hello_world/migrations.ex` — see "Database & Migrations" below.
 - **No `actor_opts/1` keyword-list helper** — `HelloLive` uses a simpler `actor_uuid/1` (returns the UUID directly) because the `Activity.log/1` map embeds the value directly. The `actor_opts/1` form returning `[actor_uuid: uuid]` shows up in modules that thread it through context functions accepting `opts \\ []`.
 
-When extending this template into a real module, the order of additions is usually: more schemas (+ the matching migration version) → context module → Errors dispatcher → `actor_opts/1` helper, in that order. See `phoenix_kit_locations` for the smallest end-to-end reference of all four.
+When extending this template into a real module, the order of additions is usually: context module → schemas (+ the migration coordinator that creates their tables) → Errors dispatcher → `actor_opts/1` helper, in that order. See `phoenix_kit_locations` for the smallest end-to-end reference of all four.
 
 ## Common Commands
 
@@ -324,15 +325,23 @@ stays about core's tables; adding module tables there couples every module's
 schema to a core release and bloats the core package for hosts that never
 install the module.
 
-This template implements the pattern end to end, and those four files are the
-whole thing to copy:
+**hello_world itself owns no tables** — it's the template, and a demo module
+that creates a table in every host that installs it is exactly the wrong
+example. `migration_module/0` stays at its `nil` default here. What the
+template ships instead is the copyable shape:
 
 | File | Role |
 |------|------|
-| `lib/phoenix_kit_hello_world/migrations.ex` | The versioned coordinator — `current_version/0`, `up/1`, `down/1`, `migrated_version_runtime/1`, per-version `up_vN/1` steps, `COMMENT ON TABLE` version tracking |
-| `lib/phoenix_kit_hello_world.ex` | `migration_module/0` returns the coordinator — this is the entire registration |
-| `test/support/migration_runner.ex` | Static `Ecto.Migration` wrapper so the coordinator can be driven by `Ecto.Migrator` in tests (a host app gets this file generated for it) |
-| `test/migrations_test.exs` | Guards the contract `mix phoenix_kit.update` depends on, plus the state the migration leaves in the DB |
+| `lib/phoenix_kit_hello_world/migrations.ex` | All-comments coordinator template — `current_version/0`, `up/1`, `down/1`, `migrated_version_runtime/1`, per-version `up_vN/1` steps, `COMMENT ON TABLE` version tracking, plus the test-wrapper notes. Compiles to nothing |
+| `lib/phoenix_kit_hello_world/schemas/example_item.ex` | All-comments schema template for the table that coordinator would create |
+| `README.md` → "Versioned migrations" | The same material as prose, with the V2 / prefix-safety / testing sections |
+
+Registering one is a single callback in your module:
+
+```elixir
+@impl PhoenixKit.Module
+def migration_module, do: MyModule.Migrations
+```
 
 ### How a host installs and upgrades it
 
@@ -343,12 +352,13 @@ each module that is behind writes a migration into the host's
 `priv/repo/migrations/` that calls back into the coordinator:
 
 ```elixir
-def up, do: PhoenixKitHelloWorld.Migrations.up(prefix: "public", version: 1)
-def down, do: PhoenixKitHelloWorld.Migrations.down(prefix: "public", version: 0)
+def up, do: MyModule.Migrations.up(prefix: "public", version: 1)
+def down, do: MyModule.Migrations.down(prefix: "public", version: 0)
 ```
 
 then runs `mix ecto.migrate`. The host never hand-writes migration SQL for your
-module, and the generated migration honors the host's `--prefix`.
+module, needs no install task from you, and the generated migration honors the
+host's `--prefix`.
 
 ### Rules
 
@@ -368,18 +378,24 @@ module, and the generated migration honors the host's `--prefix`.
 - **Don't assume core's chain ran first** — call
   `Helpers.ensure_uuid_v7_function/1` before using `uuid_generate_v7()` as a
   column default.
+- **Test the coordinator.** `up/1` uses `Ecto.Migration` macros and can't be
+  called directly; wrap it in a static `use Ecto.Migration` module and run that
+  through `Ecto.Migrator.up/4` in `test_helper.exs`, after
+  `PhoenixKit.Migration.ensure_current/2`. Pass `:os.system_time(:microsecond)`
+  as the version, never a fixed `0` — once `0` is in `schema_migrations` the
+  wrapper is never invoked again and later versions silently stop applying.
 
 Some older first-party tables still live in core's chain (and core migration
 V144 consolidated a couple of module-owned tables *into* it). That is history,
-not the pattern to copy: new module tables go in the module. Live references
-besides this one: `phoenix_kit_web_analytics` (two tables, indexes) and
+not the pattern to copy: new module tables go in the module. Working live
+references: `phoenix_kit_web_analytics` (two tables, indexes) and
 `phoenix_kit_boards` (single table).
 
 ## Testing
 
 ### Setup
 
-This module owns its own test database (`phoenix_kit_hello_world_test`). Schema setup in `test/test_helper.exs` runs two things, in this order: core's versioned migrations via `PhoenixKit.Migration.ensure_current/2`, then this module's own coordinator via `Ecto.Migrator.up/4` on `PhoenixKitHelloWorld.Test.MigrationRunner`. No hand-written DDL anywhere — the test schema is built by exactly the code a host app runs. Create the DB once:
+This module owns its own test database (`phoenix_kit_hello_world_test`). Schema setup runs core's versioned migrations directly via `PhoenixKit.Migration.ensure_current/2` in `test/test_helper.exs` — no module-owned DDL anywhere, because this template owns no tables. A module that does own tables adds its own coordinator here as a second `Ecto.Migrator.up/4` step (see "Database & Migrations" above). Create the DB once:
 
 ```bash
 mix test.setup    # ecto.create; test_helper handles the rest on every boot
@@ -402,8 +418,7 @@ Without this, all DB calls through `PhoenixKit.RepoHelper` crash with "No reposi
 - `test/support/live_case.ex` — `PhoenixKitHelloWorld.LiveCase` (thin wrapper around `Phoenix.LiveViewTest` with router + endpoint wiring)
 - `test/support/test_endpoint.ex` + `test_router.ex` + `test_layouts.ex` — minimal Phoenix plumbing so LiveViews can render under `Phoenix.LiveViewTest.live/2`. **`Test.Layouts.app/1` renders flashes** — required for asserting flash content via `live/2` after click events
 - `test/support/activity_log_assertions.ex` — `PhoenixKitHelloWorld.ActivityLogAssertions` (helpers `assert_activity_logged/2` and `refute_activity_logged/2` that query `phoenix_kit_activities` directly with action / actor_uuid / metadata-subset matching)
-- `test/support/migration_runner.ex` — `PhoenixKitHelloWorld.Test.MigrationRunner`, the static `Ecto.Migration` wrapper around this module's own coordinator. `PhoenixKitHelloWorld.Migrations.up/1` uses `Ecto.Migration` macros, so it can't be called directly — it needs a migrator process around it
-- `test/test_helper.exs` — calls `PhoenixKit.Migration.ensure_current/2` to apply all core versioned migrations on every boot, then `Ecto.Migrator.up/4` on `Test.MigrationRunner` for this module's own tables. Both use a fresh version number per boot on purpose. **Do not** swap either for `Ecto.Migrator.run([{0, ...}], :up, all: true)` — that pattern silently goes stale once `0` is in `schema_migrations` (the inner runner is never re-invoked, so newly-shipped versions don't apply). See `PhoenixKit.Migration.ensure_current/2` moduledoc for the full bug story
+- `test/test_helper.exs` — calls `PhoenixKit.Migration.ensure_current/2` to apply all core versioned migrations on every boot (a fresh version number per boot, on purpose). **Do not** swap it for `Ecto.Migrator.run([{0, PhoenixKit.Migration}], :up, all: true)` — that pattern silently goes stale once `0` is in `schema_migrations` (the inner runner is never re-invoked, so newly-shipped versions don't apply). See `PhoenixKit.Migration.ensure_current/2` moduledoc for the full bug story
 
 ### Running tests
 

@@ -8,9 +8,10 @@ defmodule PhoenixKitHelloWorld.SchemaPrefixConformanceTest do
   it silently falls back to `search_path` resolution — invisible on
   public installs, broken on prefixed ones.
 
-  hello_world's own schema (`PhoenixKitHelloWorld.Schemas.Item`) is the
-  first thing this scan covers, and the test ships with the template so
-  modules copied from it keep the guard from day one.
+  hello_world has no real schemas (the only match is the commented
+  template in `lib/phoenix_kit_hello_world/schemas/example_item.ex`),
+  but this test ships with the template so modules copied from it keep
+  the guard from day one.
   """
 
   test "every table-backed schema uses PhoenixKit.SchemaPrefix" do

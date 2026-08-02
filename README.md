@@ -428,8 +428,14 @@ The module ships the DDL for its own tables — nothing goes into core
 `phoenix_kit`'s migration chain, and the host app needs no install task: `mix
 phoenix_kit.update` finds the coordinator through `migration_module/0` and
 generates the host migration itself. See [Versioned
-migrations](#versioned-migrations) below; `phoenix_kit_hello_world` implements
-the whole pattern in `lib/phoenix_kit_hello_world/migrations.ex`.
+migrations](#versioned-migrations) below.
+
+`phoenix_kit_hello_world` is a template and owns no tables, so it carries the
+coordinator and schema as fully-commented files that compile to nothing
+(`lib/phoenix_kit_hello_world/migrations.ex`,
+`lib/phoenix_kit_hello_world/schemas/example_item.ex`) — copy and uncomment.
+For versions that actually run, read `phoenix_kit_boards` (single table) or
+`phoenix_kit_web_analytics` (two tables plus indexes).
 
 ## Available callbacks
 
@@ -1628,16 +1634,15 @@ queries target it too — without it they resolve via the connection's
 ones. With no prefix configured it compiles to nil (zero behavior change), so
 never omit it.
 
-A fully-commented copyable schema lives at
-`lib/phoenix_kit_hello_world/schemas/item.ex` — it is a real schema over a
-real table this module's own migrations create, so the conventions are
-exercised rather than described. `test/schema_prefix_conformance_test.exs`
-(also part of this template) scans `lib/` so a schema can't silently skip the
-attribute — copy both.
+A fully-commented copyable template lives at
+`lib/phoenix_kit_hello_world/schemas/example_item.ex`, and
+`test/schema_prefix_conformance_test.exs` (also part of this template) scans
+`lib/` so a schema can't silently skip the attribute — copy both.
 
-One more rule the file demonstrates: the schema's `timestamps/1` type must
-match the migration's. `timestamps(type: :utc_datetime)` against
-`timestamptz(6)` columns silently truncates on write.
+One more rule that file records: the schema's `timestamps/1` type must match
+the one your migration used. `timestamps(type: :utc_datetime)` against
+`timestamptz(6)` columns (what `:utc_datetime_usec` creates) silently
+truncates on write.
 
 ### Versioned migrations
 
@@ -1647,15 +1652,13 @@ new `Vxxx` to core `phoenix_kit`'s migration chain. Core's chain stays about
 core's tables; your schema versions with the package that owns it, and hosts
 that never install your module never carry your DDL.
 
-`phoenix_kit_hello_world` implements the whole pattern for one table. Copy
-these four files and rename:
-
-| File | Role |
-|---|---|
-| `lib/phoenix_kit_hello_world/migrations.ex` | The versioned coordinator — everything below lives here |
-| `lib/phoenix_kit_hello_world.ex` | `migration_module/0` returns the coordinator |
-| `test/support/migration_runner.ex` | `Ecto.Migration` wrapper so tests can drive the coordinator |
-| `test/migrations_test.exs` | Guards the contract, and the state the migration leaves behind |
+`phoenix_kit_hello_world` is the template and owns no tables of its own — a
+demo module has no business creating one in every host that installs it. It
+carries the pattern as a fully-commented file that compiles to nothing,
+`lib/phoenix_kit_hello_world/migrations.ex`: copy it, uncomment, rename. Two
+published modules run this exact shape if you want a working reference —
+`phoenix_kit_boards` (single table) and `phoenix_kit_web_analytics` (two
+tables plus indexes).
 
 #### How it works
 
@@ -1672,7 +1675,7 @@ No install task, and no hand-written SQL in the host.
 
 #### The coordinator
 
-The shape below is the skeleton of
+The shape below is the skeleton of the template at
 `lib/phoenix_kit_hello_world/migrations.ex` — read that file for the fully
 commented version.
 
