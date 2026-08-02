@@ -1,3 +1,48 @@
+## 0.2.0 - 2026-08-02
+
+Modules now own the migrations for their own tables. Previously a module with
+DB tables had to get them added to core `phoenix_kit`'s versioned chain (the
+V90+ scheme), which coupled every module's schema to a core release and grew
+the core package for hosts that never installed the module. The template now
+demonstrates the module-owned pattern end to end.
+
+### Added
+- **`PhoenixKitHelloWorld.Migrations`** — versioned migration coordinator,
+  wired in via the `migration_module/0` callback. Creates
+  `phoenix_kit_hello_world_items` (V1), tracks the installed version in a
+  `COMMENT ON TABLE`, and is prefix-safe for `--prefix` installs. This is the
+  file to copy when your module needs tables.
+- **`PhoenixKitHelloWorld.Schemas.Item`** — a real Ecto schema over that table,
+  replacing the all-comments `schemas/example_item.ex` template. Same
+  conventions (UUIDv7 PK named `uuid`, `use PhoenixKit.SchemaPrefix`,
+  `phoenix_kit_<module_key>_` table name, timestamps matching the migration),
+  but exercised by tests instead of described in comments.
+- **`test/support/migration_runner.ex`** — the `Ecto.Migration` wrapper that
+  lets `Ecto.Migrator` drive the coordinator; `test/test_helper.exs` runs it
+  after core's chain, so the test database is built by the same code a host
+  runs.
+- **`test/migrations_test.exs`** and `test/schemas/item_test.exs` — guard the
+  four functions `mix phoenix_kit.update` calls on a coordinator, the DDL it
+  leaves behind, and the schema round-trip.
+
+### Changed
+- **Host upgrade note:** running `mix phoenix_kit.update` with this module
+  installed now creates one table (`phoenix_kit_hello_world_items`). It is a
+  demo table; `down/1` drops it.
+- Documentation rewritten around the new policy: AGENTS.md "Database &
+  Migrations" (which previously said the opposite), the README "Versioned
+  migrations" section, project structure, and the test-helper template.
+
+### Fixed
+- README migration snippets called `PhoenixKit.Config.get_repo/0`, which does
+  not exist — the runtime repo lookup is `PhoenixKit.RepoHelper.repo/0`.
+- README schema example aliased `PhoenixKit.Schemas.UUIDv7` (also nonexistent;
+  it is the top-level `UUIDv7` from the `uuidv7` package) and omitted
+  `use PhoenixKit.SchemaPrefix`, contradicting the section above it.
+- README test-helper template hand-rolled `uuid_generate_v7()` and suggested
+  `Ecto.Migrator.up(repo, 0, ...)` — a fixed version `0` stops applying newly
+  shipped migrations once it lands in `schema_migrations`.
+
 ## 0.1.8 - 2026-06-22
 
 ### Fixed

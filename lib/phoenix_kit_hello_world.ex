@@ -19,7 +19,7 @@ defmodule PhoenixKitHelloWorld do
 
   Add to your parent app's `mix.exs`:
 
-      {:phoenix_kit_hello_world, "~> 0.1.0"}
+      {:phoenix_kit_hello_world, "~> 0.2.0"}
 
   Or for local development:
 
@@ -27,6 +27,14 @@ defmodule PhoenixKitHelloWorld do
 
   Then run `mix deps.get`. That's it — the module appears in the admin
   Modules page and sidebar automatically.
+
+  ## Database
+
+  This module owns one table (`phoenix_kit_hello_world_items`) and ships the
+  migrations that create it — see `PhoenixKitHelloWorld.Migrations`, wired in
+  via `migration_module/0`. Nothing is added to core `phoenix_kit`'s migration
+  chain. Running `mix phoenix_kit.update` in the host app installs and upgrades
+  it; there is no install task to run.
 
   ## What you get for free
 
@@ -136,7 +144,7 @@ defmodule PhoenixKitHelloWorld do
 
   @impl PhoenixKit.Module
   @doc "Version string. Shown on the admin Modules page."
-  def version, do: "0.1.8"
+  def version, do: "0.2.0"
 
   @impl PhoenixKit.Module
   @doc """
@@ -245,6 +253,21 @@ defmodule PhoenixKitHelloWorld do
   @impl PhoenixKit.Module
   @doc "OTP apps whose templates Tailwind should scan for CSS classes."
   def css_sources, do: [:phoenix_kit_hello_world]
+
+  @impl PhoenixKit.Module
+  @doc """
+  This module's versioned migration coordinator.
+
+  Modules own the DDL for their own tables: the coordinator lives in THIS
+  repo and ships with THIS package, instead of a new `Vxxx` being added to
+  core `phoenix_kit`'s migration chain. `mix phoenix_kit.update` in the host
+  app finds it through this callback, compares the installed version with
+  `current_version/0`, and generates + runs a host migration when they
+  differ. See `PhoenixKitHelloWorld.Migrations` for the full contract.
+
+  Return `nil` (the default) only if your module has no tables at all.
+  """
+  def migration_module, do: PhoenixKitHelloWorld.Migrations
 
   # ── Dashboard widgets ──────────────────────────────────────────────────────
   #
@@ -414,7 +437,6 @@ defmodule PhoenixKitHelloWorld do
   #   def user_dashboard_tabs, do: []
   #   def children, do: []
   #   def route_module, do: nil          # see Route module section above
-  #   def migration_module, do: nil
   #   def required_integrations, do: []  # e.g., ["google"] or ["openrouter"]
   #   def integration_providers, do: []  # e.g., [%{key: "my_provider", name: "My Provider"}]
   #
