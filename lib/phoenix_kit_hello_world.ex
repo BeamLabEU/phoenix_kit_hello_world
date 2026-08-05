@@ -325,14 +325,85 @@ defmodule PhoenixKitHelloWorld do
     ]
   end
 
+  # ── Project extension (reference implementation) ──────────────────────
+  #
+  # Any PhoenixKit module can plug into individual PROJECTS by exporting a
+  # zero-arity `phoenix_kit_project_extensions/0` returning a list of PLAIN
+  # MAPS — the same duck-typed, one-way shape as `phoenix_kit_widgets/0`
+  # above: no dependency on `phoenix_kit_projects`, no behaviour, no
+  # `@impl`. Its Extensions.Registry discovers this function at runtime and
+  # normalizes each map; an admin then toggles the extension per project in
+  # that project's Modules panel.
+  #
+  # The single definition below deliberately uses EVERY contract field; the
+  # tab LV (`Web.ProjectHelloTabLive`) demonstrates the render side and the
+  # embed-session contract. Copy the pair when adding a project extension
+  # to your module.
+  @doc false
+  def phoenix_kit_project_extensions do
+    [
+      %{
+        # Globally-unique key, conventionally "<module_key>_<capability>".
+        key: "hello_world_tab",
+        # Catalog text for the project Modules panel (translated dynamically
+        # at render when a translation exists).
+        name: "Hello World",
+        description: "The reference project extension — every contract field in one entry.",
+        icon: "hero-hand-raised",
+        # Gates availability on THIS site module being enabled (and its
+        # permission for visibility). Omit for hub-owned built-ins only.
+        module_key: "hello_world",
+        # Tabs contributed to the project show page. Each LV is rendered by
+        # the hub via live_render with the embed-session contract — it must
+        # mount off-router (no handle_params/3); see the tab LV's moduledoc.
+        tabs: [
+          %{
+            key: "hello",
+            label: "Hello",
+            icon: "hero-hand-raised",
+            lv: PhoenixKitHelloWorld.Web.ProjectHelloTabLive
+          }
+        ],
+        # Per-instance config fields, edited in the project's Modules panel
+        # and delivered to the tab LV as session["config"]. Writes are
+        # whitelisted to these keys — same field types as settings_schema.
+        config_schema: [
+          %{key: "greeting", type: :string, label: "Greeting", default: "Hello"}
+        ],
+        # Per-project feature flags this extension owns (resolved by the
+        # hub's Features layer; `requires` names flag dependencies).
+        feature_flags: [
+          %{key: "hello_world_confetti", label: "Confetti", default: false, requires: []}
+        ],
+        # Action keys the extension's UI asks PhoenixKitProjects.Authz about.
+        permission_actions: [:view],
+        # Merged into notification preference types (core's shape).
+        notification_types: [],
+        # {module, function}/2 called with (project_uuid, config) after a
+        # successful toggle. Best-effort: failures log, never abort.
+        on_enable: nil,
+        on_disable: nil,
+        # Whether projects WITHOUT an explicit row get this extension.
+        # Reference stays false — demo tabs shouldn't appear unbidden.
+        default_enabled: false
+      }
+    ]
+  end
+
   @impl PhoenixKit.Module
   @doc """
   Notification types this module contributes.
 
   Each type becomes a per-user toggle in notification preferences. `actions`
   maps the activity `action` strings this module emits to the type, so a user
-  who mutes "Hello World" stops receiving those notifications. See the
-  Notifications admin page (`Web.NotificationsLive`) for the matching senders.
+  who mutes "Hello World" stops receiving those notifications.
+
+  Optionally declare `sub_types` for finer control: the base type then acts as a
+  master switch (off ⇒ every sub muted) and each sub is individually toggleable
+  (see `PhoenixKit.Notifications.Types`). Sub keys are bare here (`"greetings"`)
+  and composed to `"hello_world.greetings"` at registration. When a type is fully
+  split, leave its own `actions: []` so every action is owned by exactly one sub.
+  See the Notifications admin page (`Web.NotificationsLive`) for the senders.
   """
   def notification_types do
     [
@@ -340,8 +411,24 @@ defmodule PhoenixKitHelloWorld do
         key: "hello_world",
         label: "Hello World",
         description: "Greetings and demos from the Hello World module",
-        actions: ["hello.greeting", "hello.custom"],
-        default: true
+        actions: [],
+        default: true,
+        sub_types: [
+          %{
+            key: "greetings",
+            label: "Greetings",
+            description: "Plain greetings from the demo",
+            actions: ["hello.greeting"],
+            default: true
+          },
+          %{
+            key: "custom",
+            label: "Custom demos",
+            description: "Custom-display demo notifications",
+            actions: ["hello.custom"],
+            default: true
+          }
+        ]
       }
     ]
   end
