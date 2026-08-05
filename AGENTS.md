@@ -100,6 +100,8 @@ This is a **PhoenixKit module** that implements the `PhoenixKit.Module` behaviou
 
 - **`PhoenixKitHelloWorld.Web.ComponentsLive`** (`lib/phoenix_kit_hello_world/web/components_live.ex`) — Live showcase of commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets. **Render is decomposed into per-section function components** — see "Code Organization: Section-Decomposition Pattern" below. The render function is a flat dispatch over 22 `<.x_section />` calls; each section is a private function returning a `<.showcase_section>` block.
 
+- **`PhoenixKitHelloWorld.Web.ProjectHelloTabLive`** (`lib/phoenix_kit_hello_world/web/project_hello_tab_live.ex`) — the **reference project extension** for the `phoenix_kit_projects` hub (2026-08). Pairs with the `phoenix_kit_project_extensions/0` function in the main module: the same duck-typed one-way contract shape as `phoenix_kit_widgets/0` (plain maps, no dependency on the projects package). The catalog entry demonstrates every contract field (tabs, `config_schema`, `feature_flags`, `permission_actions`, lifecycle callbacks, `default_enabled`); the tab LV demonstrates the hub's embed-session contract (`project_uuid` / `ext_key` / `config` / `current_user_uuid` / `locale`) and must stay off-router-mountable — **no `handle_params/3`** (pinned by `test/phoenix_kit_hello_world/project_extension_test.exs`). Copy the pair when adding a project extension to any module; an admin enables it per project in that project's Modules & Features panel.
+
 ### Activity Logging Pattern
 
 The canonical pattern for external modules (see `HelloLive.log_demo_event/1`):
