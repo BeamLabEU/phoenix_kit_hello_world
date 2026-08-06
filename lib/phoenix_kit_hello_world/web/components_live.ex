@@ -625,7 +625,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <code>{~s|  <div class="collapse-content">Content</div>|}</code>
         <code>{~s|</div>|}</code>
         <p class="text-xs text-base-content/50">
-          PhoenixKit also ships <code>&lt;.accordion&gt;</code> (<code>PhoenixKitWeb.Components.Core.Accordion</code>) with extra styling — it requires additional CSS classes (<code>.accordion-toggle</code>, <code>.accordion-content</code>) defined in the host app's stylesheet. The daisyUI pattern above works without any setup.
+          PhoenixKit also ships <code>&lt;.accordion&gt;</code> (<code>PhoenixKitWeb.Components.Core.Accordion</code>) on this same native-details pattern, with an optional server-tracked mode (<code>open</code> + <code>toggle_event</code>) so a section the user opened survives LiveView re-renders.
         </p>
       </:snippet>
     </.showcase_section>
