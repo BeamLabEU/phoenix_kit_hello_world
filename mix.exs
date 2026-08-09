@@ -1,7 +1,7 @@
 defmodule PhoenixKitHelloWorld.MixProject do
   use Mix.Project
 
-  @version "0.1.8"
+  @version "0.1.9"
   @source_url "https://github.com/BeamLabEU/phoenix_kit_hello_world"
 
   def project do
@@ -80,7 +80,10 @@ defmodule PhoenixKitHelloWorld.MixProject do
   defp deps do
     [
       # PhoenixKit provides the Module behaviour and Settings API.
-      pk_dep(:phoenix_kit, "~> 1.7.189"),
+      # 1.7.214+ required: Scope.can_access_admin_area?/1 (the rename of the
+      # now-`@deprecated` Scope.admin?/1) — an older core has no such function,
+      # so this is an UndefinedFunctionError at runtime, not a warning.
+      pk_dep(:phoenix_kit, "~> 1.7.214"),
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.1"},
@@ -108,7 +111,9 @@ defmodule PhoenixKitHelloWorld.MixProject do
   defp docs do
     [
       main: "PhoenixKitHelloWorld",
-      source_ref: "v#{@version}"
+      # Tags in this repo are bare version numbers, not v-prefixed — a "v" ref
+      # points at a tag that does not exist and 404s every HexDocs source link.
+      source_ref: @version
     ]
   end
 end

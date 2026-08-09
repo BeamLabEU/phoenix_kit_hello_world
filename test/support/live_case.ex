@@ -62,7 +62,7 @@ defmodule PhoenixKitHelloWorld.LiveCase do
   Returns a real `PhoenixKit.Users.Auth.Scope` struct for testing.
 
   Hello World's LiveView calls `Scope.has_module_access?(scope,
-  "hello_world")` and `Scope.admin?(scope)` — both are pattern-matched
+  "hello_world")` and `Scope.can_access_admin_area?(scope)` — both are pattern-matched
   on `%PhoenixKit.Users.Auth.Scope{}`, so a plain map won't satisfy
   them. The struct's `:cached_permissions` field is a `MapSet` that
   `has_module_access?/2` checks via membership, and `:cached_roles` /

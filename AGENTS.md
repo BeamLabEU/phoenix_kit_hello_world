@@ -4,10 +4,11 @@ This file provides guidance to AI agents when working with code in this reposito
 
 ## Project Overview
 
-PhoenixKit plugin module template and showcase — a production-ready example for building PhoenixKit plugin modules. Implements the `PhoenixKit.Module` behaviour for auto-discovery by a parent Phoenix application. Ships with three admin pages that demonstrate the most common patterns:
+PhoenixKit plugin module template and showcase — a production-ready example for building PhoenixKit plugin modules. Implements the `PhoenixKit.Module` behaviour for auto-discovery by a parent Phoenix application. Ships with four admin pages that demonstrate the most common patterns:
 
 - **Overview** — Landing page with module info + a "Log demo event" button showing the canonical activity logging pattern
 - **Events** — Infinite-scroll activity feed filtered to `module: "hello_world"` (universal pattern, drop-in for any module)
+- **Notifications** — Tour of sending, customizing, and managing notifications via the activity log
 - **Components** — Live showcase of commonly-used PhoenixKit core components with copy-paste snippets
 
 ## What This Module Does NOT Have (by design)
@@ -17,10 +18,10 @@ This is the canonical template — its job is to demonstrate the minimum viable 
 - **No context module** — there is no `PhoenixKitHelloWorld.HelloWorld` business-logic context. Pure presentation; the only "operation" is logging a demo activity event from `HelloLive`. Larger modules (locations, catalogue) add a context module.
 - **No Errors dispatcher** — there are no error-returning context functions, so no `PhoenixKitHelloWorld.Errors` atom-to-gettext module. When you build a real module that returns `{:error, :something}` shapes, copy `phoenix_kit_locations/lib/phoenix_kit_locations/errors.ex` as the reference.
 - **No Ecto schemas** — no DB-backed data of its own. Larger modules add `lib/<module>/schemas/`; the copyable all-comments template (UUIDv7 PK + `use PhoenixKit.SchemaPrefix` + naming/timestamps conventions) is `lib/phoenix_kit_hello_world/schemas/example_item.ex`, guarded by `test/schema_prefix_conformance_test.exs` — copy both when adding your first schema.
-- **No production migrations** — modules with DB tables get them via core `phoenix_kit`'s versioned migrations (V90+ scheme), not in their own repo.
+- **No migrations** — a template has no business creating a table in every host that installs it, so `migration_module/0` stays at its `nil` default. The pattern a real module follows is module-owned migrations, and the copyable all-comments coordinator is `lib/phoenix_kit_hello_world/migrations.ex` — see "Database & Migrations" below.
 - **No `actor_opts/1` keyword-list helper** — `HelloLive` uses a simpler `actor_uuid/1` (returns the UUID directly) because the `Activity.log/1` map embeds the value directly. The `actor_opts/1` form returning `[actor_uuid: uuid]` shows up in modules that thread it through context functions accepting `opts \\ []`.
 
-When extending this template into a real module, the order of additions is usually: context module → schemas → Errors dispatcher → `actor_opts/1` helper, in that order. See `phoenix_kit_locations` for the smallest end-to-end reference of all four.
+When extending this template into a real module, the order of additions is usually: context module → schemas (+ the migration coordinator that creates their tables) → Errors dispatcher → `actor_opts/1` helper, in that order. See `phoenix_kit_locations` for the smallest end-to-end reference of all four.
 
 ## Common Commands
 
@@ -90,15 +91,17 @@ This is a **PhoenixKit module** that implements the `PhoenixKit.Module` behaviou
 
 ### Key Modules
 
-- **`PhoenixKitHelloWorld`** (`lib/phoenix_kit_hello_world.ex`) — Main module implementing `PhoenixKit.Module` behaviour. Declares required callbacks (`module_key`, `module_name`, `enabled?`, `enable_system`, `disable_system`) and optional ones (`admin_tabs`, `permission_metadata`, `get_config`, etc.). Registers 4 admin tabs: parent `:admin_hello_world` + three subtabs (`:admin_hello_world_overview`, `:admin_hello_world_events`, `:admin_hello_world_components`).
+- **`PhoenixKitHelloWorld`** (`lib/phoenix_kit_hello_world.ex`) — Main module implementing `PhoenixKit.Module` behaviour. Declares required callbacks (`module_key`, `module_name`, `enabled?`, `enable_system`, `disable_system`) and optional ones (`admin_tabs`, `permission_metadata`, `get_config`, etc.). Registers 5 admin tabs: parent `:admin_hello_world` + four subtabs (`:admin_hello_world_overview`, `:admin_hello_world_events`, `:admin_hello_world_components`, `:admin_hello_world_notifications`).
 
-- **`PhoenixKitHelloWorld.Paths`** (`lib/phoenix_kit_hello_world/paths.ex`) — Centralized path helpers (`index/0`, `events/0`, `components/0`). All navigation goes through `PhoenixKit.Utils.Routes.path/1` for prefix/locale handling.
+- **`PhoenixKitHelloWorld.Paths`** (`lib/phoenix_kit_hello_world/paths.ex`) — Centralized path helpers (`index/0`, `events/0`, `components/0`, `notifications/0`). All navigation goes through `PhoenixKit.Utils.Routes.path/1` for prefix/locale handling.
 
 - **`PhoenixKitHelloWorld.Web.HelloLive`** (`lib/phoenix_kit_hello_world/web/hello_live.ex`) — Landing page with module info, Scope API demonstration, and the "Log demo event" button showing the canonical activity logging pattern.
 
-- **`PhoenixKitHelloWorld.Web.EventsLive`** (`lib/phoenix_kit_hello_world/web/events_live.ex`) — Activity events feed with infinite scroll, action filtering, and graceful degradation when `PhoenixKit.Activity` isn't loaded. Near-identical to `phoenix_kit_catalogue`'s events tab — this is a universal pattern.
+- **`PhoenixKitHelloWorld.Web.EventsLive`** (`lib/phoenix_kit_hello_world/web/events_live.ex`) — Activity events feed with infinite scroll (core's `<.load_more infinite>` + `InfiniteScroll` hook — no page-local JS), action filtering via core's `<.select>`, and graceful degradation when `PhoenixKit.Activity` isn't loaded. Near-identical to `phoenix_kit_catalogue`'s events tab — this is a universal pattern.
 
-- **`PhoenixKitHelloWorld.Web.ComponentsLive`** (`lib/phoenix_kit_hello_world/web/components_live.ex`) — Live showcase of commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets. **Render is decomposed into per-section function components** — see "Code Organization: Section-Decomposition Pattern" below. The render function is a flat dispatch over 22 `<.x_section />` calls; each section is a private function returning a `<.showcase_section>` block.
+- **`PhoenixKitHelloWorld.Web.NotificationsLive`** (`lib/phoenix_kit_hello_world/web/notifications_live.ex`) — Tour of the notification system: send (plain and custom-display), read/manage (unread count, mark-seen, dismiss), declare `notification_types/0`, and live updates over `PhoenixKit.Notifications.Events.subscribe/1`. Every core call is guarded with `Code.ensure_loaded?/1`.
+
+- **`PhoenixKitHelloWorld.Web.ComponentsLive`** (`lib/phoenix_kit_hello_world/web/components_live.ex`) — Live showcase of commonly-used PhoenixKit core components (icons, badges, buttons, alerts, stat cards, form inputs, modals, tables, pagination, empty states, loading states) with copy-paste snippets. **Render is decomposed into per-section function components** — see "Code Organization: Section-Decomposition Pattern" below. The render function is a flat dispatch over 25 `<.x_section />` calls; each section is a private function returning a `<.showcase_section>` block. Sections are deliberately paired across the divider — a raw daisyUI section, then the core component that wraps it (`form_inputs`/`form_helpers`, `tables`/`table_default`, `pagination`/`pagination_component`, `empty_states`/`empty_state`).
 
 - **`PhoenixKitHelloWorld.Web.ProjectHelloTabLive`** (`lib/phoenix_kit_hello_world/web/project_hello_tab_live.ex`) — the **reference project extension** for the `phoenix_kit_projects` hub (2026-08). Pairs with the `phoenix_kit_project_extensions/0` function in the main module: the same duck-typed one-way contract shape as `phoenix_kit_widgets/0` (plain maps, no dependency on the projects package). The catalog entry demonstrates every contract field (tabs, `config_schema`, `feature_flags`, `permission_actions`, lifecycle callbacks, `default_enabled`); the tab LV demonstrates the hub's embed-session contract (`project_uuid` / `ext_key` / `config` / `current_user_uuid` / `locale`) and must stay off-router-mountable — **no `handle_params/3`** (pinned by `test/phoenix_kit_hello_world/project_extension_test.exs`). Copy the pair when adding a project extension to any module; an admin enables it per project in that project's Modules & Features panel.
 
@@ -173,7 +176,7 @@ Rules:
 - **Sections that need LV state declare `attr` for each value.** Don't pass the whole `assigns` — be explicit about what the section reads.
 - **Stateless sections take no attrs** — they're called as `<.icons_section />`.
 - **Stay in one file.** The "single-file showcase" value of a template page (everything visible at once when copy-pasting from the source) is preserved by keeping all sections in the same module. The only thing the decomposition changes is per-function navigability.
-- **Small inline helpers like `<.section_divider label="...">` and `<.page_header>` belong with the sections** — they're part of the same dispatch shape.
+- **Small inline helpers like `<.section_divider label="...">` belong with the sections** — they're part of the same dispatch shape. Note there is deliberately no `<.page_header>` helper: the page title comes from the `page_title` assign and is rendered once by the admin layout (see "UI & Layout Conventions").
 
 `ComponentsLive` ended up at 1060 lines after decomposition (was 905 before, with one 742-line render function). Total grew because each section now has function-component plumbing; per-function size dropped from 742 → ~30 (render) and ~25–50 (each section). The win is in maintainability, not in source-line count.
 
@@ -191,7 +194,9 @@ lib/phoenix_kit_hello_world/
 └── web/
     ├── hello_live.ex                            # Overview: module info + activity logging demo
     ├── events_live.ex                           # Activity events feed (infinite scroll)
-    └── components_live.ex                       # PhoenixKit core components showcase
+    ├── notifications_live.ex                    # Notification system tour (send / manage)
+    ├── components_live.ex                       # PhoenixKit core components showcase
+    └── hello_widget.ex                          # Reference dashboard widget
 ```
 
 ## The reference dashboard widget
@@ -222,8 +227,29 @@ projects widgets need).
 - **Navigation paths**: always use `PhoenixKit.Utils.Routes.path/1`, never relative paths
 - **`enabled?/0`**: must rescue errors and return `false` as fallback (DB may not be available)
 - **LiveViews**: use `use PhoenixKitWeb, :live_view` which imports PhoenixKit's core components (`<.icon>`, `<.button>`, etc.), Gettext, layout config, and HTML helpers. External modules that use `use Phoenix.LiveView` directly must import helpers explicitly instead.
-- **JavaScript hooks**: must be inline `<script>` tags; register on `window.PhoenixKitHooks`
+- **JavaScript hooks**: prefer a core hook (they ship in PhoenixKit's own JS bundle, so they are registered on every page load). Only hand-roll one when core has none — and then deliver it via the base64-encoded pattern in the README, **not** an inline `<script>` in `render/1`: an inline script never executes when the page is reached via `navigate/2`.
 - **LiveView assigns** available in admin pages: `@phoenix_kit_current_scope`, `@current_locale`, `@url_path`
+
+### UI & Layout Conventions
+
+- **No page-level width cap.** The page-root `<div>` gets spacing only (`flex flex-col px-4 py-6 gap-6`). No `container`, no page-level `max-w-*`. The admin layout owns page width — capping it again produces a narrow column floating in a wide shell. A `max-w-*` scoped to a single form card is fine; a page-root cap is not.
+- **One header, from `page_title`.** Set `page_title` (and optionally `page_subtitle`) in `mount/3`; the admin layout renders them in the page header. Do **not** also render an in-body `<h1>`/`<h2>` for the page — that puts two titles on screen, usually with different wording. Card titles (`<h2 class="card-title">`) inside a card are not page headers and are fine.
+- **Prefer core components over hand-rolled markup.** `<.table_default>` over a raw `<table>`, `<.pagination>` / `<.load_more>` over hand-built join buttons, `<.empty_state>` over a bespoke "nothing here" panel, and the core form primitives over raw inputs (see below). `ComponentsLive` pairs each raw daisyUI section with its core counterpart after the divider so you can see the difference.
+- **Wrap user-facing strings in gettext.** All four demo LiveViews use `Gettext.gettext(PhoenixKitWeb.Gettext, "...")` — including `page_title`, `page_subtitle`, flash messages, button labels, and empty-state copy. Code samples inside `<pre>` blocks are not user-facing copy; leave them alone.
+
+### daisyUI Version
+
+PhoenixKit's UI targets **daisyUI 5** — minimum **5.6.0**, verified against 5.6.17. The version is asserted in core at `PhoenixKit.Install.DaisyUI.minimum_version/0`; `mix phoenix_kit.install`, `mix phoenix_kit.update`, and `mix phoenix_kit.doctor` warn when the host's vendored `assets/vendor/daisyui.js` is older. daisyUI lives in the **host app**, not in PhoenixKit — core ships themes (`phoenix_kit_daisyui5.css`) only.
+
+daisyUI 5 removed a number of v4 class names ([upgrade guide](https://daisyui.com/docs/upgrade/)). Do not use:
+
+| Retired (v4) | Use instead |
+|---|---|
+| `btn-group` | `join` + `join-item` |
+| `label-text` | plain text inside `<label class="label">` |
+| `input-bordered`, `select-bordered`, `textarea-bordered`, `file-input-bordered` | nothing — these elements have a border by default in v5 |
+
+Also note daisyUI 5 requires the wrapper `<label class="select">` pattern around a bare `<select>`; the core `<.select>` component already does this for you.
 
 ### Commit Message Rules
 
@@ -231,9 +257,18 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **Do not inc
 
 ### Core Form Primitives
 
-Hello World uses `use PhoenixKitWeb, :live_view` (not `use Phoenix.LiveView` directly), which auto-imports the core form primitives `<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`, `<.simple_form>` from `PhoenixKitWeb.Components.Core.{Input, Select, Textarea, Checkbox, SimpleForm}`. Use these in every form rather than raw HTML — they handle label wiring, error rendering via `phx-feedback-for`, and daisyUI styling. The `ComponentsLive` "Form helpers" section (the `<.form_helpers_section />` private function) demonstrates this pattern end-to-end.
+`use PhoenixKitWeb, :live_view` auto-imports the core form primitives `<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`, `<.simple_form>` from `PhoenixKitWeb.Components.Core.{Input, Select, Textarea, Checkbox, SimpleForm}`. Use these in every form rather than raw HTML — they handle label wiring, error rendering via `phx-feedback-for`, and daisyUI styling (including daisyUI 5's `<label class="select">` wrapper). The `ComponentsLive` "Form helpers" section (the `<.form_helpers_section />` private function) demonstrates this pattern end-to-end.
 
-Modules that use `use Phoenix.LiveView` directly (locations, sync, catalogue, newsletters) need to `import` these explicitly. This template's choice of `PhoenixKitWeb` macros is the simpler default and the recommended starting point.
+This template shows both sides. `hello_live.ex` and `components_live.ex` use `use PhoenixKitWeb, :live_view` — the simpler default and the recommended starting point. `events_live.ex` and `notifications_live.ex` use `use Phoenix.LiveView` directly (as locations, sync, catalogue, and newsletters do) and therefore `import` each component explicitly:
+
+```elixir
+import PhoenixKitWeb.Components.Core.EmptyState, only: [empty_state: 1]
+import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
+import PhoenixKitWeb.Components.Core.Pagination, only: [load_more: 1]
+import PhoenixKitWeb.Components.Core.Select, only: [select: 1]
+```
+
+The rule is the same either way — reach for the core component, not raw HTML. Only the import mechanics differ.
 
 ## Routing: Single Page vs Multi-Page
 
@@ -285,13 +320,84 @@ Modules with templates using Tailwind classes must implement `css_sources/0` ret
 
 ## Database & Migrations
 
-This template module has no database tables. Modules that need DB tables should have their migrations created in the parent `phoenix_kit` project as a new versioned migration (e.g., `V90`).
+**A module owns the DDL for its own tables.** The migrations for a module's
+tables live in that module's repo and ship with that module's package — not as
+a new `Vxxx` appended to core `phoenix_kit`'s migration chain. Core's chain
+stays about core's tables; adding module tables there couples every module's
+schema to a core release and bloats the core package for hosts that never
+install the module.
+
+**hello_world itself owns no tables** — it's the template, and a demo module
+that creates a table in every host that installs it is exactly the wrong
+example. `migration_module/0` stays at its `nil` default here. What the
+template ships instead is the copyable shape:
+
+| File | Role |
+|------|------|
+| `lib/phoenix_kit_hello_world/migrations.ex` | All-comments coordinator template — `current_version/0`, `up/1`, `down/1`, `migrated_version_runtime/1`, per-version `up_vN/1` steps, `COMMENT ON TABLE` version tracking, plus the test-wrapper notes. Compiles to nothing |
+| `lib/phoenix_kit_hello_world/schemas/example_item.ex` | All-comments schema template for the table that coordinator would create |
+| `README.md` → "Versioned migrations" | The same material as prose, with the V2 / prefix-safety / testing sections |
+
+Registering one is a single callback in your module:
+
+```elixir
+@impl PhoenixKit.Module
+def migration_module, do: MyModule.Migrations
+```
+
+### How a host installs and upgrades it
+
+`mix phoenix_kit.update` (run in the host app) scans beam files for registered
+modules, calls `migration_module/0` on each, compares
+`migrated_version_runtime(prefix: prefix)` against `current_version()`, and for
+each module that is behind writes a migration into the host's
+`priv/repo/migrations/` that calls back into the coordinator:
+
+```elixir
+def up, do: MyModule.Migrations.up(prefix: "public", version: 1)
+def down, do: MyModule.Migrations.down(prefix: "public", version: 0)
+```
+
+then runs `mix ecto.migrate`. The host never hand-writes migration SQL for your
+module, needs no install task from you, and the generated migration honors the
+host's `--prefix`.
+
+### Rules
+
+- **Version steps are immutable once shipped.** A host already at V1 will never
+  re-run V1, so editing `up_v1/1` only forks fresh installs from upgraded ones.
+  Add `up_v2/1` + its `apply_step/3` clauses and bump `@current_version`.
+- **Version lives in a `COMMENT ON TABLE`**, not in "does the table exist" —
+  the latter can't distinguish "not installed" from "installed at V1".
+- **Stay prefix-safe.** Pass `prefix:` to every table/index, keep index names
+  bare on `CREATE INDEX` (Postgres rejects a qualified name there), and anchor
+  existence checks to the target schema. Use
+  `PhoenixKit.Migrations.Postgres.Helpers` (`qualify_table/2`, `uuid_v7_call/1`,
+  `ensure_uuid_v7_function/1`, `validate_prefix!/1`) instead of hand-rolling
+  those strings.
+- **Table names are prefixed `phoenix_kit_<module_key>_`** so modules and the
+  parent app can't collide.
+- **Don't assume core's chain ran first** — call
+  `Helpers.ensure_uuid_v7_function/1` before using `uuid_generate_v7()` as a
+  column default.
+- **Test the coordinator.** `up/1` uses `Ecto.Migration` macros and can't be
+  called directly; wrap it in a static `use Ecto.Migration` module and run that
+  through `Ecto.Migrator.up/4` in `test_helper.exs`, after
+  `PhoenixKit.Migration.ensure_current/2`. Pass `:os.system_time(:microsecond)`
+  as the version, never a fixed `0` — once `0` is in `schema_migrations` the
+  wrapper is never invoked again and later versions silently stop applying.
+
+Some older first-party tables still live in core's chain (and core migration
+V144 consolidated a couple of module-owned tables *into* it). That is history,
+not the pattern to copy: new module tables go in the module. Working live
+references: `phoenix_kit_web_analytics` (two tables, indexes) and
+`phoenix_kit_boards` (single table).
 
 ## Testing
 
 ### Setup
 
-This module owns its own test database (`phoenix_kit_hello_world_test`). Schema setup runs core's versioned migrations directly via `PhoenixKit.Migration.ensure_current/2` in `test/test_helper.exs` — no module-owned DDL anywhere. Create the DB once:
+This module owns its own test database (`phoenix_kit_hello_world_test`). Schema setup runs core's versioned migrations directly via `PhoenixKit.Migration.ensure_current/2` in `test/test_helper.exs` — no module-owned DDL anywhere, because this template owns no tables. A module that does own tables adds its own coordinator here as a second `Ecto.Migrator.up/4` step (see "Database & Migrations" above). Create the DB once:
 
 ```bash
 mix test.setup    # ecto.create; test_helper handles the rest on every boot
@@ -314,7 +420,7 @@ Without this, all DB calls through `PhoenixKit.RepoHelper` crash with "No reposi
 - `test/support/live_case.ex` — `PhoenixKitHelloWorld.LiveCase` (thin wrapper around `Phoenix.LiveViewTest` with router + endpoint wiring)
 - `test/support/test_endpoint.ex` + `test_router.ex` + `test_layouts.ex` — minimal Phoenix plumbing so LiveViews can render under `Phoenix.LiveViewTest.live/2`. **`Test.Layouts.app/1` renders flashes** — required for asserting flash content via `live/2` after click events
 - `test/support/activity_log_assertions.ex` — `PhoenixKitHelloWorld.ActivityLogAssertions` (helpers `assert_activity_logged/2` and `refute_activity_logged/2` that query `phoenix_kit_activities` directly with action / actor_uuid / metadata-subset matching)
-- `test/test_helper.exs` — calls `PhoenixKit.Migration.ensure_current/2` to apply all core versioned migrations on every boot. **Do not** swap in `Ecto.Migrator.run([{0, PhoenixKit.Migration}], :up, all: true)` — that pattern silently goes stale once `0` is in `schema_migrations` (the inner runner is never re-invoked, so newly-shipped Vxxx migrations don't apply). See `PhoenixKit.Migration.ensure_current/2` moduledoc for the full bug story
+- `test/test_helper.exs` — calls `PhoenixKit.Migration.ensure_current/2` to apply all core versioned migrations on every boot (a fresh version number per boot, on purpose). **Do not** swap it for `Ecto.Migrator.run([{0, PhoenixKit.Migration}], :up, all: true)` — that pattern silently goes stale once `0` is in `schema_migrations` (the inner runner is never re-invoked, so newly-shipped versions don't apply). See `PhoenixKit.Migration.ensure_current/2` moduledoc for the full bug story
 
 ### Running tests
 

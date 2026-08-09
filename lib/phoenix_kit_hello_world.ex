@@ -28,6 +28,16 @@ defmodule PhoenixKitHelloWorld do
   Then run `mix deps.get`. That's it — the module appears in the admin
   Modules page and sidebar automatically.
 
+  ## Database
+
+  This module has no tables — it's a template, and a demo module has no
+  business creating one in every host that installs it. When YOUR module needs
+  tables, it ships the migrations that create them: a versioned coordinator in
+  your own repo, returned from `migration_module/0`, never a new `Vxxx` in core
+  `phoenix_kit`'s chain. `mix phoenix_kit.update` in the host app then installs
+  and upgrades them, so there is no install task to write. The copyable
+  (all-comments) template is `lib/phoenix_kit_hello_world/migrations.ex`.
+
   ## What you get for free
 
   - Admin sidebar tab (appears/disappears when module is toggled)
@@ -136,7 +146,7 @@ defmodule PhoenixKitHelloWorld do
 
   @impl PhoenixKit.Module
   @doc "Version string. Shown on the admin Modules page."
-  def version, do: "0.1.8"
+  def version, do: "0.1.9"
 
   @impl PhoenixKit.Module
   @doc """
@@ -245,6 +255,23 @@ defmodule PhoenixKitHelloWorld do
   @impl PhoenixKit.Module
   @doc "OTP apps whose templates Tailwind should scan for CSS classes."
   def css_sources, do: [:phoenix_kit_hello_world]
+
+  # ── Versioned migrations ───────────────────────────────────────────────────
+  #
+  # A module owns the DDL for its own tables: the migration coordinator lives
+  # in the module's OWN repo and ships with its package — never as a new
+  # `Vxxx` added to core `phoenix_kit`'s migration chain. `mix
+  # phoenix_kit.update` in the host app finds it through this callback,
+  # compares the installed version against `current_version/0`, and generates
+  # + runs a host migration when they differ.
+  #
+  # hello_world is a template and owns no tables, so it leaves the callback at
+  # its `nil` default. When your module needs one, uncomment this and copy
+  # lib/phoenix_kit_hello_world/migrations.ex (the fully commented
+  # coordinator template):
+  #
+  #   @impl PhoenixKit.Module
+  #   def migration_module, do: MyModule.Migrations
 
   # ── Dashboard widgets ──────────────────────────────────────────────────────
   #
@@ -501,7 +528,7 @@ defmodule PhoenixKitHelloWorld do
   #   def user_dashboard_tabs, do: []
   #   def children, do: []
   #   def route_module, do: nil          # see Route module section above
-  #   def migration_module, do: nil
+  #   def migration_module, do: nil      # see Versioned migrations section above
   #   def required_integrations, do: []  # e.g., ["google"] or ["openrouter"]
   #   def integration_providers, do: []  # e.g., [%{key: "my_provider", name: "My Provider"}]
   #

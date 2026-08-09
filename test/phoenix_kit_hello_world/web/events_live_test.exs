@@ -13,20 +13,47 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
   use PhoenixKitHelloWorld.LiveCase
 
   describe "mount" do
-    test "renders the page heading and total counter", %{conn: conn} do
+    test "renders the total counter", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
 
-      # C5 delta: heading + total are gettext-wrapped now
-      assert html =~ "Activity Events"
+      # C5 delta: total is gettext-wrapped now
       assert html =~ "0 events"
+    end
+
+    test "renders no page-level header or width cap (issue #23)", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
+
+      # `page_title` is rendered once by the admin layout. The page must not
+      # render a second in-body title, and must not cap the page-level wrapper.
+      refute html =~ "Activity Events"
+      refute html =~ "<h2"
+      assert html =~ ~s|<div class="flex flex-col px-4 py-6 gap-4">|
     end
 
     test "shows the empty state when no events recorded", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
 
-      # C5 delta: empty-state text wrapped in gettext
+      # C5 delta: empty-state text wrapped in gettext.
+      # Issue #23 delta: rendered by core's `<.empty_state>`, not hand-rolled.
       assert html =~ "No events recorded yet"
       assert html =~ "Head back to the Overview page"
+    end
+  end
+
+  describe "infinite scroll (issue #24)" do
+    test "uses core's InfiniteScroll hook, not a page-local inline script", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
+
+      # The old inline <script> registered `HelloWorldInfiniteScroll` from
+      # inside render/1, so it never executed when the page was reached via
+      # `navigate/2`. Core's `InfiniteScroll` hook ships in PhoenixKit's own
+      # JS bundle instead, so it is registered on every page load.
+      refute html =~ "HelloWorldInfiniteScroll"
+      refute html =~ "<script"
+
+      source = File.read!("lib/phoenix_kit_hello_world/web/events_live.ex")
+      assert source =~ "import PhoenixKitWeb.Components.Core.Pagination, only: [load_more: 1]"
+      assert source =~ ~s|id="events-load-more"|
     end
   end
 
@@ -34,13 +61,28 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
     test "renders gettext-wrapped Action label and Clear button", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
 
-      # `>Action<` matches because <span> renders Action with no surrounding
-      # whitespace. `>Clear<` would NOT match because the button uses
-      # multi-line HEEX so there's `>\n  Clear\n</button>`. Match the
+      # Issue #27 delta: the filter is core's `<.select>` now, which renders
+      # its label through `FormFieldLabel.label/1` — a multi-line
+      # `<span class="label-text ...">`, so match it with whitespace slack
+      # rather than the old `>Action</span>` exact form. `>Clear<` likewise
+      # would NOT match because the button uses multi-line HEEX; match the
       # button by its phx-click target instead.
-      assert html =~ ">Action</span>"
+      assert html =~ ~r/class="label-text[^"]*">\s*Action\s*<\/span>/
       assert html =~ ~r/phx-click="clear_filters"[^>]*>\s*Clear\s*</s
       assert html =~ "All Actions"
+    end
+
+    test "filter uses core's <.select>, not a hand-rolled <select> (issue #27)", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
+
+      # `<.select>` wires the feedback container and the id/name pairing for
+      # us — a raw `<select name="filter[action]">` has neither.
+      assert html =~ ~s|phx-feedback-for="filter[action]"|
+      assert html =~ ~s|id="filter-action"|
+
+      source = File.read!("lib/phoenix_kit_hello_world/web/events_live.ex")
+      assert source =~ "import PhoenixKitWeb.Components.Core.Select, only: [select: 1]"
+      refute source =~ ~s|<select name="filter[action]">|
     end
 
     test "detail-link title literal is wrapped in Gettext.gettext (Batch 2 delta)" do
@@ -67,7 +109,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
 
       html = render(view)
       assert is_binary(html)
-      assert html =~ "Activity Events"
+      assert html =~ "0 events"
     end
   end
 end

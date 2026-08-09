@@ -26,8 +26,11 @@
 #      conventions" in the README — generic names collide with other
 #      modules and the parent app).
 #
-#   4. `timestamps(type: :utc_datetime)` — the workspace standardized on
-#      timestamptz columns (core migration V58).
+#   4. Timestamps are timestamptz (the workspace standardized on this in
+#      core migration V58) and the schema's `timestamps/1` type must match
+#      the one your migration used. `:utc_datetime` against `timestamptz(6)`
+#      columns (what `:utc_datetime_usec` creates) silently truncates on
+#      write — pick one and use it in both files.
 #
 # defmodule PhoenixKitHelloWorld.Schemas.Item do
 #   @moduledoc """
@@ -69,8 +72,8 @@
 #     convention in phoenix_kit_entities/lib/phoenix_kit_entities/entity_data.ex.
 #   * Smallest end-to-end live reference (schemas + context + Errors +
 #     activity logging): phoenix_kit_locations.
-#   * Migrations live in core's versioned chain for first-party modules, or
-#     in your own migration coordinator for standalone ones — either way,
-#     new migration SQL must stay prefix-safe (bare index names on CREATE,
-#     schema-anchored existence checks; see core AGENTS.md "Prefix-safe
-#     migrations").
+#   * The table behind a schema like this is created by YOUR module's own
+#     versioned migrations — see the commented coordinator template in
+#     lib/phoenix_kit_hello_world/migrations.ex and the README's "Versioned
+#     migrations" section. Module tables do not go into core phoenix_kit's
+#     Vxxx chain.

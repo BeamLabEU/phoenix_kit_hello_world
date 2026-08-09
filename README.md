@@ -210,14 +210,17 @@ defmodule MyPhoenixKitModule.Web.IndexLive do
   use PhoenixKitWeb, :live_view
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :page_title, "My Module")}
+    {:ok,
+     assign(socket,
+       page_title: "My Module",
+       page_subtitle: "What this page is for"
+     )}
   end
 
   def render(assigns) do
     ~H"""
-    <div class="px-4 py-6">
-      <h1 class="text-2xl font-bold">My Module</h1>
-      <p class="text-base-content/70 mt-2">Your content here.</p>
+    <div class="flex flex-col px-4 py-6 gap-6">
+      <p class="text-base-content/70">Your content here.</p>
     </div>
     """
   end
@@ -225,6 +228,13 @@ end
 ```
 
 The admin layout (sidebar, header, theme) is applied automatically. You don't need to wrap anything in `LayoutWrapper`.
+
+Two layout rules are worth internalizing now, because they're easy to get wrong and hard to un-see afterwards:
+
+- **The layout renders `page_title`/`page_subtitle` in the page header — so your template renders no page heading of its own.** Adding an `<h1>My Module</h1>` to the template puts two titles on screen, and in practice they drift apart in wording.
+- **No page-level width cap.** The page-root `<div>` gets spacing only. No `container`, no page-level `max-w-*` — the admin layout already owns page width. (A `max-w-*` scoped to one form card is fine.)
+
+See "UI & Layout Conventions" in [AGENTS.md](AGENTS.md) for the full list.
 
 ### 5. Add to parent app
 
@@ -405,16 +415,27 @@ For modules with database tables, add:
 ```
 lib/
   my_phoenix_kit_module/
+    migrations.ex                            # Versioned migration coordinator
     schemas/
-      item.ex                               # Ecto schema
-    migration.ex                             # Migration coordinator
-    migration/postgres/
-      v01.ex                                # Initial tables
-      v02.ex                                # Schema changes
-mix/
-  tasks/
-    my_phoenix_kit_module.install.ex         # Install task
+      item.ex                                # Ecto schema
+test/
+  support/
+    migration_runner.ex                      # Ecto.Migration wrapper (tests only)
+  migrations_test.exs                        # Guards the migration contract
 ```
+
+The module ships the DDL for its own tables — nothing goes into core
+`phoenix_kit`'s migration chain, and the host app needs no install task: `mix
+phoenix_kit.update` finds the coordinator through `migration_module/0` and
+generates the host migration itself. See [Versioned
+migrations](#versioned-migrations) below.
+
+`phoenix_kit_hello_world` is a template and owns no tables, so it carries the
+coordinator and schema as fully-commented files that compile to nothing
+(`lib/phoenix_kit_hello_world/migrations.ex`,
+`lib/phoenix_kit_hello_world/schemas/example_item.ex`) — copy and uncomment.
+For versions that actually run, read `phoenix_kit_boards` (single table) or
+`phoenix_kit_web_analytics` (two tables plus indexes).
 
 ## Available callbacks
 
@@ -659,9 +680,27 @@ inside the admin `live_session` with the admin layout applied. This happens at c
 
 ### Admin layout is auto-applied
 
-PhoenixKit's `on_mount` hook detects external plugin LiveViews and automatically applies the admin layout (sidebar, header, theme). **Do not** wrap your templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout>` — this causes double sidebars. Just render your inner content directly.
+PhoenixKit's `on_mount` hook detects external plugin LiveViews and automatically applies the admin layout (sidebar, header, theme).
 
-This only applies to admin LiveViews. Public controller templates (rendered via `Phoenix.Controller.render/2`) still need the wrapper if they use the app layout.
+There are two supported shapes here. Pick one — don't mix them.
+
+**1. Auto-applied chrome (the default — what this template does).** Assign `page_title` / `page_subtitle` in `mount/3` and render your inner content directly. Do not call `<PhoenixKitWeb.Components.LayoutWrapper.app_layout>` yourself; the layout already did.
+
+**2. Self-wrapped layout (opt-out).** A module that needs to own the wrapper — to pass `app_layout` attributes the automatic call doesn't set — registers an `on_mount` that points `socket.private[:live_layout]` at the host's plain layout, then calls `app_layout` from its own `render/1`:
+
+```elixir
+on_mount({__MODULE__, :self_wrapped_layout})
+
+def on_mount(:self_wrapped_layout, _params, _session, socket) do
+  {:cont, put_in(socket.private[:live_layout], {MyAppWeb.Layouts, :app})}
+end
+```
+
+`phoenix_kit_warehouse`'s `stock_live.ex` and `phoenix_kit_manufacturing`'s `machines_live.ex` both ship this pattern.
+
+A stray `app_layout` call — pattern 2's `render/1` without pattern 2's `on_mount` — no longer produces two sidebars. Core's `LayoutWrapper.app_layout/1` detects that admin chrome was already rendered earlier in the same render tree, short-circuits to `render_slot(@inner_block)`, and logs a `:debug` message naming the fix. You get one sidebar and a log line rather than a broken page.
+
+This all applies to admin LiveViews. Public controller templates (rendered via `Phoenix.Controller.render/2`) still need the wrapper if they use the app layout.
 
 ### Route module for complex routes
 
@@ -1194,6 +1233,18 @@ end
 
 External modules **cannot inject files into the parent app's asset pipeline** (`app.js`). All JavaScript must be delivered inside your LiveView templates.
 
+### First: check whether core already has the hook
+
+Hooks that ship in PhoenixKit's own JS bundle are registered on **every** page load, so they work no matter how the page is reached. A hook you deliver from your own template does not have that property (see the rules below). Before writing one, check `PhoenixKitHooks` in core — e.g. `InfiniteScroll`, which pairs with `<.load_more infinite>`:
+
+```elixir
+import PhoenixKitWeb.Components.Core.Pagination, only: [load_more: 1]
+
+<.load_more id="events-load-more" loaded={@loaded} total={@total} infinite />
+```
+
+`events_live.ex` in this template uses exactly that — auto-load on scroll plus a manual "Load more" fallback button, and no JS of its own. Only when core has nothing suitable do you deliver your own, using the patterns below.
+
 ### Simple inline hooks
 
 For small amounts of JS, use inline `<script>` tags. PhoenixKit's `app.js` collects hooks from `window.PhoenixKitHooks` when creating the LiveSocket.
@@ -1236,7 +1287,7 @@ Then in your LiveView template:
 ### Key rules for inline JS
 
 - Register hooks on `window.PhoenixKitHooks` — PhoenixKit spreads this into the LiveSocket
-- Pages using hooks must be entered via **full page load** (`redirect/2` or plain `<a href>`), not `navigate/2`, so the inline script executes
+- A page whose hook is registered by an inline `<script>` in its own `render/1` must be entered via **full page load** (`redirect/2` or plain `<a href>`), not `navigate/2`, so that script executes. This constraint bites harder than it sounds: in-app sidebar links and `<.link navigate={...}>` are all patched navigation, so the hook silently binds to nothing and the feature does nothing, with no error. Prefer a core hook (above) or the base64 delivery below, and reserve inline `<script>` for pages that genuinely are only reached by full load.
 - Never assume access to `node_modules`, `esbuild`, or the parent app's JS build
 
 ### Base64-encoded JS delivery (for large scripts)
@@ -1466,12 +1517,18 @@ UtilsDate.format_datetime_with_user_format(dt)   # uses admin settings for forma
 
 ### UI guidelines
 
+PhoenixKit's UI targets **daisyUI 5** — minimum **5.6.0**, verified against 5.6.17. daisyUI lives in the **host app** (`assets/vendor/daisyui.js`), not in PhoenixKit; core ships themes only. `mix phoenix_kit.doctor` warns when the host's copy is older than the minimum, and `PhoenixKit.Install.DaisyUI.minimum_version/0` is the authoritative value.
+
 - Use **daisyUI semantic classes** — `bg-base-100`, `text-base-content`, `btn btn-primary`, `badge badge-success`
 - Never hardcode colors like `bg-white`, `text-gray-500`, etc. — these break with themes
 - Use `text-base-content/70` for muted text
+- **Don't use daisyUI v4 classes that v5 removed** ([upgrade guide](https://daisyui.com/docs/upgrade/)): `btn-group` (use `join` + `join-item`), `label-text` (plain text inside `<label class="label">`), and the `*-bordered` family — `input-bordered`, `select-bordered`, `textarea-bordered`, `file-input-bordered` — which are unnecessary because those elements have a border by default in v5
+- daisyUI 5 needs the wrapper `<label class="select">` pattern around a bare `<select>` — the core `<.select>` component handles this, which is one more reason to use it over raw HTML
 - The admin layout is applied automatically for plugin LiveViews — just render your content
+- **Render no page-level heading and no page-level width cap** — `page_title`/`page_subtitle` are rendered once by the layout, and the layout owns page width. No `container`, no page-root `max-w-*`
 - Use `card bg-base-100 shadow-xl` for card containers
 - Use `badge badge-sm` for status indicators
+- Prefer core components over hand-rolled markup: `<.table_default>`, `<.pagination>` / `<.load_more>`, `<.empty_state>`, and the core form primitives. The Components showcase pairs each raw daisyUI section with its core counterpart
 
 ## Cross-module integration
 
@@ -1582,76 +1639,60 @@ A fully-commented copyable template lives at
 `test/schema_prefix_conformance_test.exs` (also part of this template) scans
 `lib/` so a schema can't silently skip the attribute — copy both.
 
+One more rule that file records: the schema's `timestamps/1` type must match
+the one your migration used. `timestamps(type: :utc_datetime)` against
+`timestamptz(6)` columns (what `:utc_datetime_usec` creates) silently
+truncates on write.
+
 ### Versioned migrations
 
-Use the **versioned migration** system for database tables. This lets users auto-upgrade their database schema when they update your dep — no manual migration files needed.
+**Your module owns the DDL for its own tables.** The migrations that create
+them live in your repo and ship inside your package — they are *not* added as a
+new `Vxxx` to core `phoenix_kit`'s migration chain. Core's chain stays about
+core's tables; your schema versions with the package that owns it, and hosts
+that never install your module never carry your DDL.
+
+`phoenix_kit_hello_world` is the template and owns no tables of its own — a
+demo module has no business creating one in every host that installs it. It
+carries the pattern as a fully-commented file that compiles to nothing,
+`lib/phoenix_kit_hello_world/migrations.ex`: copy it, uncomment, rename. Two
+published modules run this exact shape if you want a working reference —
+`phoenix_kit_boards` (single table) and `phoenix_kit_web_analytics` (two
+tables plus indexes).
 
 #### How it works
 
-1. Your module implements `migration_module/0` returning a coordinator module
-2. The coordinator tracks version numbers via SQL comments on a table
-3. Each version is an immutable module (V01, V02, etc.) that creates or alters tables
-4. `mix phoenix_kit.update` auto-detects all module migrations and runs them
+1. Your module implements `migration_module/0`, returning a coordinator module.
+2. The coordinator tracks the installed version in a `COMMENT ON TABLE` on one
+   of your tables.
+3. Each version is an immutable step (`up_v1/1`, `up_v2/1`, …) that creates or
+   alters tables.
+4. In the host app, `mix phoenix_kit.update` discovers every module's
+   coordinator, generates a host migration for each one that is behind, and
+   runs `mix ecto.migrate`.
 
-#### Setting up versioned migrations
+No install task, and no hand-written SQL in the host.
 
-**1. Create version modules** — each one is immutable once shipped:
+#### The coordinator
 
-```elixir
-# lib/my_module/migration/postgres/v01.ex
-defmodule MyModule.Migration.Postgres.V01 do
-  use Ecto.Migration
-
-  def up(%{prefix: prefix} = _opts) do
-    create_if_not_exists table(:phoenix_kit_my_module_items,
-                            primary_key: false,
-                            prefix: prefix) do
-      add :uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()")
-      add :name, :string, null: false
-      add :user_uuid, references(:phoenix_kit_users, column: :uuid, type: :uuid),
-        null: false
-
-      timestamps(type: :utc_datetime)
-    end
-
-    create_if_not_exists index(:phoenix_kit_my_module_items, [:user_uuid], prefix: prefix)
-  end
-
-  def down(%{prefix: prefix} = _opts) do
-    drop_if_exists table(:phoenix_kit_my_module_items, prefix: prefix)
-  end
-end
-```
-
-**2. Create a migration coordinator** — manages version detection and sequencing:
+The shape below is the skeleton of the template at
+`lib/phoenix_kit_hello_world/migrations.ex` — read that file for the fully
+commented version.
 
 ```elixir
-# lib/my_module/migration.ex
-defmodule MyModule.Migration do
-  @moduledoc """
-  Versioned migrations for My Module.
-
-  ## Usage
-
-  Create a migration in your parent app:
-
-      defmodule MyApp.Repo.Migrations.AddMyModuleTables do
-        use Ecto.Migration
-
-        def up, do: MyModule.Migration.up()
-        def down, do: MyModule.Migration.down()
-      end
-
-  Or use `mix phoenix_kit.update` which handles all PhoenixKit modules automatically.
-  """
+defmodule MyModule.Migrations do
+  @moduledoc "Versioned migration coordinator for `my_module`."
 
   use Ecto.Migration
+
+  alias PhoenixKit.Migrations.Postgres.Helpers
 
   @initial_version 1
   @current_version 1
   @default_prefix "public"
-  @version_table "phoenix_kit_my_module_items"  # table used for version tracking
+  @version_table "phoenix_kit_my_module_items"
 
+  @doc "The version this code expects the schema to be at."
   def current_version, do: @current_version
 
   def up(opts \\ []) do
@@ -1659,81 +1700,107 @@ defmodule MyModule.Migration do
     initial = migrated_version(opts)
 
     cond do
-      initial == 0 ->
-        change(@initial_version..opts.version, :up, opts)
-
-      initial < opts.version ->
-        change((initial + 1)..opts.version, :up, opts)
-
-      true ->
-        :ok
+      initial == 0 -> change(@initial_version..opts.version, :up, opts)
+      initial < opts.version -> change((initial + 1)..opts.version, :up, opts)
+      true -> :ok
     end
+
+    :ok
   end
 
   def down(opts \\ []) do
-    opts =
-      opts
-      |> Enum.into(%{prefix: @default_prefix})
-      |> Map.put_new(:quoted_prefix, inspect(@default_prefix))
-      |> Map.put_new(:escaped_prefix, @default_prefix)
-
+    opts = with_defaults(opts, 0)
     current = migrated_version(opts)
     target = Map.get(opts, :version, 0)
 
-    if current > target do
-      change(current..(target + 1)//-1, :down, opts)
-    end
+    if current > target, do: change(current..(target + 1)//-1, :down, opts)
+
+    :ok
   end
 
+  # Migration context — reads through the `Ecto.Migration` repo() helper.
   def migrated_version(opts \\ []) do
     opts = with_defaults(opts, @initial_version)
-    escaped_prefix = Map.fetch!(opts, :escaped_prefix)
+    read_version(repo(), opts.escaped_prefix)
+  end
 
-    table_exists_query = """
-    SELECT EXISTS (
-      SELECT FROM information_schema.tables
-      WHERE table_name = '#{@version_table}'
-      AND table_schema = '#{escaped_prefix}'
-    )
-    """
+  # Runtime context — this is the one `mix phoenix_kit.update` calls, from a
+  # Mix task with no migrator running, so it goes through PhoenixKit's
+  # configured repo instead. Returns 0 when the DB can't be reached.
+  def migrated_version_runtime(opts \\ []) do
+    opts = with_defaults(opts, @initial_version)
+    read_version(PhoenixKit.RepoHelper.repo(), opts.escaped_prefix)
+  rescue
+    _ -> 0
+  end
 
-    case repo().query(table_exists_query, [], log: false) do
-      {:ok, %{rows: [[true]]}} ->
-        version_query = """
-        SELECT pg_catalog.obj_description(pg_class.oid, 'pg_class')
-        FROM pg_class
-        LEFT JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
-        WHERE pg_class.relname = '#{@version_table}'
-        AND pg_namespace.nspname = '#{escaped_prefix}'
-        """
+  # ── v1 ──────────────────────────────────────────────────────────────────
 
-        case repo().query(version_query, [], log: false) do
-          {:ok, %{rows: [[version]]}} when is_binary(version) ->
-            String.to_integer(version)
+  defp up_v1(prefix) do
+    # Don't assume core's chain ran first — this is a no-op when the
+    # function already exists, and creates it inside `prefix` when it doesn't.
+    Helpers.ensure_uuid_v7_function(prefix)
 
-          _ -> 1
-        end
+    create_if_not_exists table(:phoenix_kit_my_module_items,
+                           primary_key: false,
+                           prefix: prefix
+                         ) do
+      add(:uuid, :uuid,
+        primary_key: true,
+        null: false,
+        default: fragment(Helpers.uuid_v7_call(prefix))
+      )
 
-      _ -> 0
+      add(:name, :string, null: false)
+      add(:status, :string, size: 20, null: false, default: "active")
+
+      timestamps(type: :utc_datetime_usec)
+    end
+
+    # Bare index name — `CREATE INDEX schema.name` is a syntax error.
+    create_if_not_exists(index(:phoenix_kit_my_module_items, [:status], prefix: prefix))
+  end
+
+  defp down_v1(prefix) do
+    drop_if_exists(table(:phoenix_kit_my_module_items, prefix: prefix))
+  end
+
+  # ── internals ───────────────────────────────────────────────────────────
+
+  defp change(range, direction, opts) do
+    Enum.each(range, &apply_step(direction, &1, opts.prefix))
+
+    case direction do
+      :up -> record_version(opts, Enum.max(range))
+      :down -> record_version(opts, max(Enum.min(range) - 1, 0))
     end
   end
 
-  @doc """
-  Runtime-safe version of `migrated_version/1`.
+  defp apply_step(:up, 1, prefix), do: up_v1(prefix)
+  defp apply_step(:down, 1, prefix), do: down_v1(prefix)
 
-  Uses PhoenixKit's configured repo instead of the Ecto.Migration `repo()` helper,
-  so it can be called from Mix tasks and other non-migration contexts.
-  """
-  def migrated_version_runtime(opts \\ []) do
-    opts = with_defaults(opts, @initial_version)
-    escaped_prefix = Map.fetch!(opts, :escaped_prefix)
+  defp apply_step(direction, version, _prefix) do
+    raise ArgumentError, "no #{direction} step defined for schema version #{version}"
+  end
 
-    repo = PhoenixKit.Config.get_repo()
+  defp record_version(_opts, 0), do: :ok
 
-    unless repo do
-      raise "Cannot detect repo — ensure PhoenixKit is configured"
-    end
+  defp record_version(%{prefix: prefix}, version) do
+    execute("COMMENT ON TABLE #{Helpers.qualify_table(@version_table, prefix)} IS '#{version}'")
+  end
 
+  defp with_defaults(opts, version) do
+    opts = Enum.into(opts, %{prefix: @default_prefix, version: version})
+
+    # The prefix is interpolated into raw SQL below.
+    Helpers.validate_prefix!(opts.prefix)
+
+    opts
+    |> Map.put(:quoted_prefix, inspect(opts.prefix))
+    |> Map.put(:escaped_prefix, String.replace(opts.prefix, "'", "\\'"))
+  end
+
+  defp read_version(repo, escaped_prefix) do
     table_exists_query = """
     SELECT EXISTS (
       SELECT FROM information_schema.tables
@@ -1743,176 +1810,149 @@ defmodule MyModule.Migration do
     """
 
     case repo.query(table_exists_query, [], log: false) do
-      {:ok, %{rows: [[true]]}} ->
-        version_query = """
-        SELECT pg_catalog.obj_description(pg_class.oid, 'pg_class')
-        FROM pg_class
-        LEFT JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
-        WHERE pg_class.relname = '#{@version_table}'
-        AND pg_namespace.nspname = '#{escaped_prefix}'
-        """
-
-        case repo.query(version_query, [], log: false) do
-          {:ok, %{rows: [[version]]}} when is_binary(version) ->
-            String.to_integer(version)
-
-          _ -> 1
-        end
-
+      {:ok, %{rows: [[true]]}} -> read_comment_version(repo, escaped_prefix)
       _ -> 0
     end
-  rescue
-    _ -> 0
   end
 
-  # ── Internal ──────────────────────────────────────────────────────
+  defp read_comment_version(repo, escaped_prefix) do
+    version_query = """
+    SELECT pg_catalog.obj_description(pg_class.oid, 'pg_class')
+    FROM pg_class
+    LEFT JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
+    WHERE pg_class.relname = '#{@version_table}'
+    AND pg_namespace.nspname = '#{escaped_prefix}'
+    """
 
-  defp change(range, direction, opts) do
-    Enum.each(range, fn index ->
-      pad = String.pad_leading(to_string(index), 2, "0")
-
-      [MyModule.Migration.Postgres, "V#{pad}"]
-      |> Module.concat()
-      |> apply(direction, [opts])
-    end)
-
-    case direction do
-      :up -> record_version(opts, Enum.max(range))
-      :down -> record_version(opts, max(Enum.min(range) - 1, 0))
+    case repo.query(version_query, [], log: false) do
+      {:ok, %{rows: [[version]]}} when is_binary(version) -> String.to_integer(version)
+      _ -> 1
     end
-  end
-
-  defp record_version(_opts, 0), do: :ok
-
-  defp record_version(%{prefix: prefix}, version) do
-    execute("COMMENT ON TABLE #{prefix}.#{@version_table} IS '#{version}'")
-  end
-
-  defp with_defaults(opts, version) do
-    opts = Enum.into(opts, %{prefix: @default_prefix, version: version})
-
-    opts
-    |> Map.put(:quoted_prefix, inspect(opts.prefix))
-    |> Map.put(:escaped_prefix, String.replace(opts.prefix, "'", "\\'"))
   end
 end
 ```
 
-**3. Return the coordinator from your module:**
+#### Registering it
 
 ```elixir
 @impl PhoenixKit.Module
-def migration_module, do: MyModule.Migration
+def migration_module, do: MyModule.Migrations
 ```
 
-**4. Ship an install task** for first-time setup:
-
-```elixir
-# lib/mix/tasks/my_phoenix_kit_module.install.ex
-defmodule Mix.Tasks.MyPhoenixKitModule.Install do
-  @moduledoc """
-  Installs My Module into the parent application.
-
-      mix my_phoenix_kit_module.install
-
-  Creates a database migration for the module's tables.
-  """
-  use Mix.Task
-
-  @shortdoc "Installs My Module (creates migration)"
-
-  @impl Mix.Task
-  def run(_args) do
-    app_name = Mix.Project.config()[:app]
-    app_module = app_name |> to_string() |> Macro.camelize()
-    migrations_dir = Path.join(["priv", "repo", "migrations"])
-    File.mkdir_p!(migrations_dir)
-
-    existing =
-      migrations_dir
-      |> File.ls!()
-      |> Enum.find(&String.contains?(&1, "add_my_module_tables"))
-
-    if existing do
-      Mix.shell().info("Migration already exists: #{existing}")
-    else
-      timestamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d%H%M%S")
-      filename = "#{timestamp}_add_my_module_tables.exs"
-      path = Path.join(migrations_dir, filename)
-
-      content = """
-      defmodule #{app_module}.Repo.Migrations.AddMyModuleTables do
-        use Ecto.Migration
-
-        def up, do: MyModule.Migration.up()
-        def down, do: MyModule.Migration.down()
-      end
-      """
-
-      File.write!(path, content)
-      Mix.shell().info("Created migration: #{path}")
-    end
-
-    Mix.shell().info("""
-    \nInstallation complete!
-    - Run `mix ecto.migrate` to create the tables.
-    """)
-  end
-end
-```
+That is the entire registration — no config entry, no install task.
 
 #### How upgrades work
 
-When a user updates your dep and runs `mix phoenix_kit.update`:
+When a host updates your dep and runs `mix phoenix_kit.update`:
 
-1. PhoenixKit discovers your module via beam scanning
-2. Calls `migration_module/0` to find the coordinator
-3. Compares `migrated_version_runtime(prefix: prefix)` with `current_version()`
-4. If behind, generates a migration file and runs `mix ecto.migrate`
-
-Fresh installs run V01 → V02 → ... sequentially. Upgrades only run the versions after the current DB version.
-
-#### Adding a V02 migration
-
-When you need to change the schema, **never edit V01**. Create a V02:
+1. PhoenixKit discovers your module by scanning beam files.
+2. It calls `migration_module/0` to find the coordinator.
+3. It compares `migrated_version_runtime(prefix: prefix)` with `current_version()`.
+4. If the database is behind, it writes a migration into the host's
+   `priv/repo/migrations/` and runs `mix ecto.migrate`:
 
 ```elixir
-# lib/my_module/migration/postgres/v02.ex
-defmodule MyModule.Migration.Postgres.V02 do
+defmodule MyApp.Repo.Migrations.MyModuleUpdateV01ToV02 do
   use Ecto.Migration
 
-  def up(%{prefix: prefix} = _opts) do
-    # Add new column
-    alter table(:phoenix_kit_my_module_items, prefix: prefix) do
-      add_if_not_exists :status, :string, default: "active", size: 20
-      add_if_not_exists :metadata, :map, default: %{}
-    end
+  def up, do: MyModule.Migrations.up(prefix: "public", version: 2)
+  def down, do: MyModule.Migrations.down(prefix: "public", version: 1)
+end
+```
 
-    # Add index
-    create_if_not_exists index(:phoenix_kit_my_module_items, [:status], prefix: prefix)
+Fresh installs run V1 → V2 → … in order; hosts at V1 run only the steps after V1.
+
+#### Adding a V2
+
+When you need to change the schema, **never edit V1**. A host that already ran
+V1 will never run it again, so an edit there only forks fresh installs from
+upgraded ones. Add a step:
+
+```elixir
+defp up_v2(prefix) do
+  alter table(:phoenix_kit_my_module_items, prefix: prefix) do
+    add_if_not_exists(:metadata, :map, null: false, default: %{})
   end
 
-  def down(%{prefix: prefix} = _opts) do
-    alter table(:phoenix_kit_my_module_items, prefix: prefix) do
-      remove_if_exists :metadata, :map
-      remove_if_exists :status, :string
-    end
+  create_if_not_exists(index(:phoenix_kit_my_module_items, [:name], prefix: prefix))
+end
+
+defp down_v2(prefix) do
+  alter table(:phoenix_kit_my_module_items, prefix: prefix) do
+    remove_if_exists(:metadata, :map)
   end
 end
 ```
 
-Then update `@current_version` in the coordinator:
+Then add the dispatch clauses and bump the version:
 
 ```elixir
+defp apply_step(:up, 2, prefix), do: up_v2(prefix)
+defp apply_step(:down, 2, prefix), do: down_v2(prefix)
+
 @current_version 2  # was 1
 ```
 
+#### Prefix safety
+
+PhoenixKit can install into a named Postgres schema
+(`mix phoenix_kit.install --prefix "auth"`), and the generated host migration
+passes that prefix straight into your `up/1`. Migration code that ignores it
+scatters half the module's tables into `public`. Rules:
+
+- Pass `prefix:` to every `table/2`, `index/3`, and `alter table`.
+- Keep index **names** bare on `CREATE INDEX` — Postgres rejects
+  `CREATE INDEX schema.name` and scopes an index to its table's schema anyway.
+  Only `DROP INDEX schema.name` accepts a qualified name.
+- Anchor existence checks to the target schema
+  (`AND table_schema = '#{prefix}'`), never to `search_path`.
+- Use `PhoenixKit.Migrations.Postgres.Helpers` rather than hand-rolling SQL
+  strings: `qualify_table/2`, `uuid_v7_call/1`, `ensure_uuid_v7_function/1`,
+  `validate_prefix!/1`.
+
+#### Testing your migration
+
+A coordinator that compiles is not a coordinator that runs. `up/1` uses
+`Ecto.Migration` macros, so it needs a migrator process around it — wrap it
+once in `test/support/migration_runner.ex`:
+
+```elixir
+defmodule MyModule.Test.MigrationRunner do
+  use Ecto.Migration
+
+  def up, do: MyModule.Migrations.up(prefix: "public")
+  def down, do: MyModule.Migrations.down(prefix: "public", version: 0)
+end
+```
+
+and run it from `test/test_helper.exs`, after core's chain:
+
+```elixir
+PhoenixKit.Migration.ensure_current(MyModule.Test.Repo, log: false)
+
+Ecto.Migrator.up(
+  MyModule.Test.Repo,
+  :os.system_time(:microsecond),
+  MyModule.Test.MigrationRunner,
+  log: false
+)
+```
+
+The microsecond version makes the wrapper re-run on every boot instead of
+being short-circuited by a stale `schema_migrations` row; the coordinator is
+idempotent, so a re-run against an up-to-date database is a no-op. Your test
+database is then built by exactly the code a host app runs — no separate
+fixture DDL to drift.
+
 #### Key rules
 
-- **Version modules are immutable** — never edit a shipped V01. Add a V02 instead.
-- **V01 creates the original schema** — even if you later change it. V02 ALTERs it.
-- **Use `create_if_not_exists`** and `add_if_not_exists` for idempotency
-- **Track version via SQL comment** — `COMMENT ON TABLE {table} IS '{version}'`
+- **Module tables belong to the module** — never add them to core's `Vxxx` chain.
+- **Version steps are immutable** — never edit a shipped V1. Add a V2 instead.
+- **V1 creates the original schema** — even if you later change it. V2 ALTERs it.
+- **Use `create_if_not_exists`** and `add_if_not_exists` for idempotency.
+- **Track the version via SQL comment** — `COMMENT ON TABLE {table} IS '{version}'`;
+  "does the table exist" can't tell V0 from V1.
+- **Everything takes a prefix** — see Prefix safety above.
 
 ### Schemas
 
@@ -1920,11 +1960,14 @@ Then update `@current_version` in the coordinator:
 # In your schema
 defmodule MyModule.Schemas.Item do
   use Ecto.Schema
+  use PhoenixKit.SchemaPrefix   # right after `use Ecto.Schema` — see above
+
   import Ecto.Changeset
 
-  alias PhoenixKit.Schemas.UUIDv7
-
+  # `UUIDv7` is the top-level module from the `uuidv7` package, pulled in by
+  # phoenix_kit — no alias needed.
   @primary_key {:uuid, UUIDv7, autogenerate: true}
+  @foreign_key_type UUIDv7
 
   schema "phoenix_kit_my_module_items" do
     field :name, :string
@@ -1933,7 +1976,8 @@ defmodule MyModule.Schemas.Item do
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
-    timestamps(type: :utc_datetime)
+    # Must match the type your migration used for `timestamps/1`.
+    timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(item, attrs) do
@@ -2190,26 +2234,19 @@ repo_available =
     try do
       {:ok, _} = TestRepo.start_link()
 
-      # Create uuid_generate_v7() — normally from PhoenixKit's V40 migration.
-      # Your test DB won't have it unless you create it here.
-      TestRepo.query!("""
-      CREATE OR REPLACE FUNCTION uuid_generate_v7()
-      RETURNS uuid AS $$
-      DECLARE
-        unix_ts_ms bytea;
-        uuid_bytes bytea;
-      BEGIN
-        unix_ts_ms := substring(int8send(floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3);
-        uuid_bytes := unix_ts_ms || gen_random_bytes(10);
-        uuid_bytes := set_byte(uuid_bytes, 6, (get_byte(uuid_bytes, 6) & 15) | 112);
-        uuid_bytes := set_byte(uuid_bytes, 8, (get_byte(uuid_bytes, 8) & 63) | 128);
-        RETURN encode(uuid_bytes, 'hex')::uuid;
-      END;
-      $$ LANGUAGE plpgsql VOLATILE;
-      """)
+      # Build the schema with real migrations — never hand-rolled DDL, which
+      # drifts from what hosts actually run. Core's chain first (it brings
+      # phoenix_kit_settings, phoenix_kit_activities, uuid_generate_v7(), ...):
+      PhoenixKit.Migration.ensure_current(TestRepo, log: false)
 
-      # Run your migration if you have one
-      # Ecto.Migrator.up(TestRepo, 0, MyModule.Migration, log: false)
+      # Then your module's own coordinator, through its migration wrapper.
+      # See "Testing your migration" above for MigrationRunner.
+      Ecto.Migrator.up(
+        TestRepo,
+        :os.system_time(:microsecond),
+        MyModule.Test.MigrationRunner,
+        log: false
+      )
 
       Ecto.Adapters.SQL.Sandbox.mode(TestRepo, :manual)
       true
@@ -2276,12 +2313,14 @@ test "get_config/0 is exported" do
 end
 ```
 
-**Run migrations via `Ecto.Migrator`.** If your module has a migration, you can't call `MyModule.Migration.up()` directly — it uses `Ecto.Migration` macros that require a migrator process. Use `Ecto.Migrator.up/4`:
+**Run your migrations via `Ecto.Migrator`.** You can't call `MyModule.Migrations.up()` directly — it uses `Ecto.Migration` macros that require a migrator process. Wrap it (see "Testing your migration") and run the wrapper:
 
 ```elixir
 # In test_helper.exs
-Ecto.Migrator.up(TestRepo, 0, MyModule.Migration, log: false)
+Ecto.Migrator.up(TestRepo, :os.system_time(:microsecond), MyModule.Test.MigrationRunner, log: false)
 ```
+
+Don't pass a fixed version like `0`: once `0` is in `schema_migrations` the wrapper is never invoked again, so the versions you ship later silently stop applying to your test database.
 
 **ETS-based stores use hardcoded table names.** If your module has a GenServer with ETS (like a session store), the table name is global. Tests that start their own instance will conflict. Use `setup_all` with `already_started` handling:
 
@@ -2295,7 +2334,7 @@ setup_all do
 end
 ```
 
-**`uuid_generate_v7()` must be created manually in test DB.** PhoenixKit's V40 migration creates this PostgreSQL function, but your test database won't have it. The `test_helper.exs` template above includes the function definition.
+**`uuid_generate_v7()` has to exist before your table uses it as a default.** Core's V40 migration creates it, so `PhoenixKit.Migration.ensure_current/2` in `test_helper.exs` covers the test database. In a host you can't assume core's chain ran first — call `PhoenixKit.Migrations.Postgres.Helpers.ensure_uuid_v7_function/1` at the top of your `up_v1/1` (it's a no-op when the function already exists, and creates it inside the install's schema when it doesn't).
 
 ## Verifying your module
 
@@ -2439,7 +2478,7 @@ Make sure you're using `update_boolean_setting_with_module/3` (not `update_setti
 
 ### JS hooks not registering
 
-1. **Check the page is entered via full page load** — `redirect/2` or `<a href>`, not `navigate/2`
+1. **Check how the hook is delivered** — a hook registered by an inline `<script>` in `render/1` only exists after a full page load (`redirect/2` or `<a href>`), never after `navigate/2`. If the page is reachable from the sidebar or any `<.link navigate={...}>`, that's the bug: switch to a core hook or the base64 delivery pattern above
 2. **Check `window.PhoenixKitHooks`** — open browser console, verify your hook is registered
 3. **Check element has `phx-hook`** — must match the hook name exactly
 4. **Check element has a unique `id`** — required for hooks to work

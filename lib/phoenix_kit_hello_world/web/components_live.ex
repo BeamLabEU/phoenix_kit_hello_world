@@ -6,19 +6,31 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   so you can copy-paste the patterns into your own modules. Every section includes a
   live example plus the source snippet in a `<details>` block.
 
+  ## Page structure
+
+  The page has two halves separated by `<.section_divider>`: raw daisyUI markup
+  first, then the PhoenixKit core component that wraps it. The pairs are
+  deliberate — `form_inputs_section` → `form_helpers_section`,
+  `tables_section` → `table_default_section`, `pagination_section` →
+  `pagination_component_section`, `empty_states_section` → `empty_state_section`.
+  Read a pair top-to-bottom to see what the core component buys you.
+
+  The page title and subtitle come from the `page_title` / `page_subtitle`
+  assigns — the admin layout renders them. This page renders no header of its
+  own; see the "UI & Layout Conventions" section in `AGENTS.md`.
+
   ## Categories
 
-  - **Layout** — headers, page header, cards
-  - **Typography & feedback** — badges, alerts, stat cards, hero stat card, number formatter
+  - **Typography & feedback** — badges, alerts, stat cards, number formatter
   - **Buttons & icons** — all variants, pk_link_button
   - **Navigation** — nav tabs, collapse (daisyUI), pk_link
   - **Forms** — input, select, textarea, checkbox, simple_form
-  - **Tables & lists** — standard table, draggable list
+  - **Tables & lists** — raw table, `table_default`, draggable list
   - **Modals & overlays** — base modal, confirm modal
-  - **Pagination**
+  - **Pagination** — raw join buttons, `pagination`, `load_more`
   - **Time & files** — time_ago, age_badge, file_size, file_mtime, page_status_badge
   - **Module display** — module_card
-  - **Empty / loading states**
+  - **Empty / loading states** — raw markup, `empty_state`
 
   ## Import pattern
 
@@ -58,22 +70,45 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   import PhoenixKitWeb.Components.Core.StatCard, only: [stat_card: 1]
   import PhoenixKitWeb.Components.Core.TimeDisplay
 
+  alias PhoenixKitHelloWorld.Paths
+
   @valid_demo_tabs ~w(overview activity settings)
+
+  # Sample rows for the `<.table_default>` / `<.pagination>` / `<.empty_state>`
+  # sections. Plain maps — these components take whatever shape you hand them.
+  @demo_people [
+    %{id: 1, name: "Alice", role: "admin", status: "active"},
+    %{id: 2, name: "Bob", role: "user", status: "active"},
+    %{id: 3, name: "Carol", role: "user", status: "inactive"}
+  ]
 
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
      assign(socket,
        page_title: Gettext.gettext(PhoenixKitWeb.Gettext, "Components"),
+       page_subtitle:
+         Gettext.gettext(
+           PhoenixKitWeb.Gettext,
+           "A live showcase of commonly-used components from PhoenixKitWeb.Components.Core.*. Copy the snippets into your own module."
+         ),
        show_modal: false,
        show_confirm: false,
        counter: 0,
        active_tab: "overview",
        draggable_items: Enum.map(1..6, &%{id: &1, label: "Item #{&1}"}),
        demo_form: demo_form(),
+       demo_people: @demo_people,
        languages_available: Code.ensure_loaded?(PhoenixKit.Modules.Languages)
      )}
   end
+
+  # The `<.pagination>` showcase renders real `<.link patch>` targets pointing
+  # back at this page, so clicking one round-trips through `handle_params/3`.
+  # There is nothing to read from the URL here — the demo pager is display-only
+  # — but the callback has to exist for the patch to resolve.
+  @impl true
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("open_modal", _, socket), do: {:noreply, assign(socket, :show_modal, true)}
@@ -159,9 +194,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex flex-col mx-auto max-w-5xl px-4 py-6 gap-6">
-      <.page_header />
-
+    <div class="flex flex-col px-4 py-6 gap-6">
       <.icons_section />
       <.badges_section />
       <.buttons_section />
@@ -188,6 +221,9 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
       />
       <.pk_links_section />
       <.form_helpers_section demo_form={@demo_form} />
+      <.table_default_section people={@demo_people} />
+      <.pagination_component_section />
+      <.empty_state_section />
       <.draggable_list_section items={@draggable_items} />
 
       <.section_divider label={Gettext.gettext(PhoenixKitWeb.Gettext, "Context-dependent components")} />
@@ -203,18 +239,6 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   # One function per showcase section, in the same order as the render.
   # All take `assigns` and return a `<.showcase_section>` block. Sections
   # that need LiveView state declare `attr` for each value passed in.
-
-  defp page_header(assigns) do
-    ~H"""
-    <div>
-      <h2 class="text-2xl font-bold">PhoenixKit Components</h2>
-      <p class="text-sm text-base-content/60 mt-1">
-        A live showcase of commonly-used components from <code class="bg-base-200 px-1 rounded text-xs">PhoenixKitWeb.Components.Core.*</code>.
-        Copy the snippets into your own module.
-      </p>
-    </div>
-    """
-  end
 
   defp icons_section(assigns) do
     ~H"""
@@ -526,7 +550,8 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
       <:snippet>
         <code>{~s|<table class="table table-sm table-zebra">...</table>|}</code>
         <p class="text-xs text-base-content/50">
-          For responsive tables with mobile cards, use <code>{~s|import PhoenixKitWeb.Components.Core.TableDefault|}</code>.
+          Prefer the wrapped counterpart below the divider — <code>&lt;.table_default&gt;</code>
+          adds the scroll wrapper, a toolbar, and a mobile card view.
         </p>
       </:snippet>
     </.showcase_section>
@@ -548,6 +573,10 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
       </div>
       <:snippet>
         <code>{~s|<div class="join"><button class="join-item btn btn-sm">1</button>...</div>|}</code>
+        <p class="text-xs text-base-content/50">
+          Prefer the wrapped counterpart below the divider — <code>&lt;.pagination&gt;</code>
+          builds the page URLs for you and preserves the existing query string.
+        </p>
       </:snippet>
     </.showcase_section>
     """
@@ -566,6 +595,10 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
       </div>
       <:snippet>
         <code>{~s|<div class="text-center py-8"><.icon name="hero-inbox" class="w-12 h-12 mx-auto" />...</div>|}</code>
+        <p class="text-xs text-base-content/50">
+          Prefer the wrapped counterpart below the divider — <code>&lt;.empty_state&gt;</code>
+          ships three variants and keeps every list view's empty panel identical.
+        </p>
       </:snippet>
     </.showcase_section>
     """
@@ -892,6 +925,160 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <code>{~s|</.simple_form>|}</code>
         <p class="text-xs text-base-content/50">
           <code>&lt;.input&gt;</code> handles HTML input types (text, email, number, date...). Use <code>&lt;.select&gt;</code>, <code>&lt;.textarea&gt;</code>, <code>&lt;.checkbox&gt;</code> for those primitives.
+        </p>
+      </:snippet>
+    </.showcase_section>
+    """
+  end
+
+  attr(:people, :list, required: true)
+
+  defp table_default_section(assigns) do
+    ~H"""
+    <.showcase_section
+      title="Table — core table_default"
+      description="The wrapped counterpart to the raw daisyUI table above. Same rows, but the component adds the scroll wrapper, a toolbar, and a mobile card view driven by `card_title` / `card_fields`."
+    >
+      <.table_default
+        id="demo-people-table"
+        toggleable
+        variant="zebra"
+        size="sm"
+        items={@people}
+        card_title={& &1.name}
+        card_fields={&[%{label: "Role", value: &1.role}, %{label: "Status", value: &1.status}]}
+      >
+        <:toolbar_title>
+          <span class="text-sm text-base-content/60">{length(@people)} people</span>
+        </:toolbar_title>
+        <.table_default_header>
+          <.table_default_row>
+            <.table_default_header_cell>Name</.table_default_header_cell>
+            <.table_default_header_cell>Role</.table_default_header_cell>
+            <.table_default_header_cell>Status</.table_default_header_cell>
+          </.table_default_row>
+        </.table_default_header>
+        <.table_default_body>
+          <.table_default_row :for={person <- @people}>
+            <.table_default_cell>{person.name}</.table_default_cell>
+            <.table_default_cell>
+              <span class="badge badge-ghost badge-xs">{person.role}</span>
+            </.table_default_cell>
+            <.table_default_cell>
+              <span class={[
+                "badge badge-xs",
+                person.status == "active" && "badge-success",
+                person.status != "active" && "badge-error"
+              ]}>
+                {person.status}
+              </span>
+            </.table_default_cell>
+          </.table_default_row>
+        </.table_default_body>
+      </.table_default>
+      <:snippet>
+        <code>{~s|<.table_default id="people" toggleable items={@people}|}</code>
+        <code>{~s|  card_title={& &1.name} card_fields={&[%{label: "Role", value: &1.role}]}>|}</code>
+        <code>{~s|  <.table_default_header><.table_default_row>|}</code>
+        <code>{~s|    <.table_default_header_cell>Name</.table_default_header_cell>|}</code>
+        <code>{~s|  </.table_default_row></.table_default_header>|}</code>
+        <code>{~s|  <.table_default_body>|}</code>
+        <code>{~s|    <.table_default_row :for={p <- @people}>|}</code>
+        <code>{~s|      <.table_default_cell>{p.name}</.table_default_cell>|}</code>
+        <code>{~s|    </.table_default_row>|}</code>
+        <code>{~s|  </.table_default_body>|}</code>
+        <code>{~s|</.table_default>|}</code>
+        <p class="text-xs text-base-content/50">
+          Auto-imported by <code>{~s|use PhoenixKitWeb, :live_view|}</code>. Drop <code>toggleable</code>/<code>items</code>
+          for a plain table. The desktop card/table toggle persists in localStorage.
+        </p>
+      </:snippet>
+    </.showcase_section>
+    """
+  end
+
+  defp pagination_component_section(assigns) do
+    assigns = assign(assigns, :self_path, Paths.components())
+
+    ~H"""
+    <.showcase_section
+      title="Pagination — core pagination"
+      description="The wrapped counterpart to the hand-rolled join buttons above. Builds the page URLs itself from `base_path` + `params`, preserving your existing query string. The links below patch back to this page, so clicking them is harmless."
+    >
+      <.pagination current_page={2} total_pages={5} base_path={@self_path} params={%{"demo" => "1"}} />
+
+      <p class="text-xs text-base-content/60 mt-2">
+        Load-more lists (streams, infinite scroll) use
+        <code>&lt;.load_more&gt;</code>
+        from the same module instead — see the Events page.
+      </p>
+      <:snippet>
+        <code>{~s|<.pagination current_page={@page} total_pages={@total_pages}|}</code>
+        <code>{~s|  base_path={Paths.items()} params={%{"search" => @search}} />|}</code>
+        <code>{~s|<.load_more id="items" loaded={@loaded} total={@total} infinite />|}</code>
+        <p class="text-xs text-base-content/50">
+          Both are in <code>PhoenixKitWeb.Components.Core.Pagination</code>, auto-imported by
+          <code>{~s|use PhoenixKitWeb, :live_view|}</code>. <code>&lt;.pagination&gt;</code>
+          renders <code>patch</code> links, so the page needs a <code>handle_params/3</code>.
+        </p>
+      </:snippet>
+    </.showcase_section>
+    """
+  end
+
+  defp empty_state_section(assigns) do
+    ~H"""
+    <.showcase_section
+      title="Empty state — core empty_state"
+      description="The wrapped counterpart to the hand-rolled empty panel above. Three variants share one attr shape: `compact` (default, no chrome), `card`, and `featured` (dashed-border first-run hero)."
+    >
+      <div class="flex flex-col gap-4">
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">
+            <strong>compact</strong> — "no rows match this filter", inside an existing section:
+          </p>
+          <.empty_state icon="hero-funnel" title="No items match this filter." class="py-8" />
+        </div>
+
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">
+            <strong>card</strong> — stands alone in the page body:
+          </p>
+          <.empty_state
+            variant="card"
+            icon="hero-inbox"
+            title="Nothing here yet"
+            description="Items you create will show up in this list."
+          />
+        </div>
+
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">
+            <strong>featured</strong> — first-run "here's how to get started" state, with a CTA:
+          </p>
+          <.empty_state
+            variant="featured"
+            icon="hero-sparkles"
+            title="No items yet"
+            description="Create your first item to see it appear here."
+          >
+            <button type="button" phx-click="noop" class="btn btn-primary">
+              <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Create first item
+            </button>
+          </.empty_state>
+        </div>
+      </div>
+      <:snippet>
+        <code>{~s|<.empty_state icon="hero-funnel" title="No items match this filter." />|}</code>
+        <code>{~s|<.empty_state variant="card" icon="hero-inbox" title="..." description="..." />|}</code>
+        <code>{~s|<.empty_state variant="featured" icon="hero-sparkles" title="..." description="...">|}</code>
+        <code>{~s|  <button class="btn btn-primary">Create first item</button>|}</code>
+        <code>{~s|</.empty_state>|}</code>
+        <p class="text-xs text-base-content/50">
+          Auto-imported by <code>{~s|use PhoenixKitWeb, :live_view|}</code>. LiveViews that
+          <code>{~s|use Phoenix.LiveView|}</code>
+          directly need <code>{~s|import PhoenixKitWeb.Components.Core.EmptyState|}</code>
+          — the Events and Notifications pages do exactly that.
         </p>
       </:snippet>
     </.showcase_section>
