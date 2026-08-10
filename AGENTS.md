@@ -337,6 +337,7 @@ template ships instead is the copyable shape:
 | `lib/phoenix_kit_hello_world/migrations.ex` | All-comments coordinator template — `current_version/0`, `up/1`, `down/1`, `migrated_version_runtime/1`, per-version `up_vN/1` steps, `COMMENT ON TABLE` version tracking, plus the test-wrapper notes. Compiles to nothing |
 | `lib/phoenix_kit_hello_world/schemas/example_item.ex` | All-comments schema template for the table that coordinator would create |
 | `README.md` → "Versioned migrations" | The same material as prose, with the V2 / prefix-safety / testing sections |
+| `lib/mix/tasks/phoenix_kit_hello_world.audit_migrations.ex` | Runnable audit of every installed module's coordinator against the rules below. Read-only, exits non-zero on failure |
 
 Registering one is a single callback in your module:
 
@@ -368,7 +369,29 @@ host's `--prefix`.
   re-run V1, so editing `up_v1/1` only forks fresh installs from upgraded ones.
   Add `up_v2/1` + its `apply_step/3` clauses and bump `@current_version`.
 - **Version lives in a `COMMENT ON TABLE`**, not in "does the table exist" —
-  the latter can't distinguish "not installed" from "installed at V1".
+  the latter can't distinguish "not installed" from "installed at V1", so it
+  reports the target version for every host and core skips the delta while
+  printing a success line.
+- **Read the marker with `Integer.parse/1`, never `String.to_integer/1`.** The
+  slot may already hold prose — core's V43 gives `phoenix_kit_consent_logs` a
+  description — and `String.to_integer/1` raises on it. Non-numeric comment on
+  an existing table means V1.
+- **A reader that can't determine the version must not answer 0.** Zero means
+  "not installed here" and sends the updater off to install a schema over live
+  data. Re-raise `ArgumentError` (invalid prefix) like core's reader does.
+- **`down(version: N)` returns to N.** Only `version: 0` drops the table. Fix
+  this in the same change as the version marker: while the marker is inferred no
+  host is ever handed an upgrade migration, so a `down/1` that always drops is
+  unreachable — repairing the marker alone arms it.
+- **Check that core's chain doesn't already create your table**
+  (`grep -rn "<table>" deps/phoenix_kit/lib/phoenix_kit/migrations/postgres/`).
+  Core's migrations run first, so if it does, your `up/1` is dead code and the
+  two DDLs drift. Your first real version then has to *reconcile* both shapes —
+  adopting one index naming scheme, not creating a parallel set.
+- **Ship both readers** — `migrated_version/1` (migration context) and
+  `migrated_version_runtime/1` (Mix-task context, the one core calls).
+- **Export `version_table/0`** so `mix phoenix_kit_hello_world.audit_migrations`
+  can verify the marker is numeric without hard-coding your table name.
 - **Stay prefix-safe.** Pass `prefix:` to every table/index, keep index names
   bare on `CREATE INDEX` (Postgres rejects a qualified name there), and anchor
   existence checks to the target schema. Use
@@ -377,9 +400,17 @@ host's `--prefix`.
   those strings.
 - **Table names are prefixed `phoenix_kit_<module_key>_`** so modules and the
   parent app can't collide.
-- **Don't assume core's chain ran first** — call
-  `Helpers.ensure_uuid_v7_function/1` before using `uuid_generate_v7()` as a
-  column default.
+- **Don't assume core's chain ran first** — call `Helpers.ensure_extension!/1`
+  for `"pgcrypto"` *and* `Helpers.ensure_uuid_v7_function/1` before using
+  `uuid_generate_v7()` as a column default. The function is built on pgcrypto's
+  `gen_random_bytes` and `ensure_uuid_v7_function/1` does not install
+  extensions, so skipping the first call creates a function that fails on the
+  first insert.
+- **Audit a live host before believing any of this works.**
+  `mix phoenix_kit_hello_world.audit_migrations [--prefix auth]` checks every
+  installed module's coordinator against the rules above, read-only, and exits
+  non-zero on failure. Every defect it looks for is silent when broken and
+  invisible to a database-less test suite.
 - **Test the coordinator.** `up/1` uses `Ecto.Migration` macros and can't be
   called directly; wrap it in a static `use Ecto.Migration` module and run that
   through `Ecto.Migrator.up/4` in `test_helper.exs`, after

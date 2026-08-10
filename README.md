@@ -1673,6 +1673,33 @@ tables plus indexes).
 
 No install task, and no hand-written SQL in the host.
 
+#### Before you claim a table
+
+Check that core's chain does not already create it:
+
+```bash
+grep -rn "<your table name>" deps/phoenix_kit/lib/phoenix_kit/migrations/postgres/
+```
+
+This matters because `mix phoenix_kit.update` runs core's own migrations
+*before* module migrations. If core's chain also ships your DDL, core wins every
+time: your table always pre-exists, your `up/1` is dead code on every host, and
+the two definitions quietly drift — different column widths, different index
+names, sometimes a different primary key. Nothing errors, and the update prints
+a green line for a module whose migration has never executed.
+
+`phoenix_kit_legal` shipped in exactly that state until 0.1.11: core's V43
+creates `phoenix_kit_consent_logs`, so the module's own coordinator had never
+run anywhere, and the two DDLs disagreed on four column definitions and the
+primary key. The writeup is in that repo at
+`dev_docs/reports/2026-08-10-module-migration-versioning.md`.
+
+If core does create your table, you do not get to start clean. Your first real
+version is the step that **reconciles** both shapes, and it has to reach the same
+end state from either starting point — which also means adopting one index naming
+scheme and dropping the other, rather than creating a parallel set every host
+then maintains twice.
+
 #### The coordinator
 
 The shape below is the skeleton of the template at
@@ -1695,6 +1722,18 @@ defmodule MyModule.Migrations do
   @doc "The version this code expects the schema to be at."
   def current_version, do: @current_version
 
+  @doc "The version a bare, freshly created table is at."
+  def initial_version, do: @initial_version
+
+  @doc """
+  The table whose COMMENT carries the version marker.
+
+  Not part of the protocol core calls. Export it so an auditor can verify your
+  marker is really a number without hard-coding your table name — see
+  `mix phoenix_kit_hello_world.audit_migrations`.
+  """
+  def version_table, do: @version_table
+
   def up(opts \\ []) do
     opts = with_defaults(opts, @current_version)
     initial = migrated_version(opts)
@@ -1708,37 +1747,55 @@ defmodule MyModule.Migrations do
     :ok
   end
 
+  @doc """
+  Roll back to the target version. `version: 0` drops; any higher target KEEPS
+  the table. Core generates `down(version: 1)` for a V2→V1 rollback, so a
+  coordinator whose `down/1` always drops answers "return to V1" by deleting the
+  user's data.
+  """
   def down(opts \\ []) do
     opts = with_defaults(opts, 0)
     current = migrated_version(opts)
-    target = Map.get(opts, :version, 0)
+    target = opts.version
 
     if current > target, do: change(current..(target + 1)//-1, :down, opts)
 
     :ok
   end
 
-  # Migration context — reads through the `Ecto.Migration` repo() helper.
+  # Migration context — reads through the `Ecto.Migration` repo() helper. No
+  # rescue: inside a migration, a version you cannot read must abort the
+  # transaction, never be guessed at.
   def migrated_version(opts \\ []) do
     opts = with_defaults(opts, @initial_version)
-    read_version(repo(), opts.escaped_prefix)
+    read_version(repo(), opts.prefix)
   end
 
   # Runtime context — this is the one `mix phoenix_kit.update` calls, from a
   # Mix task with no migrator running, so it goes through PhoenixKit's
-  # configured repo instead. Returns 0 when the DB can't be reached.
+  # configured repo instead.
+  #
+  # An invalid prefix is re-raised, matching core's own reader: 0 means "this
+  # module is not installed here", so reporting it for a bad prefix tells the
+  # operator something false and sends the updater off to install a schema over
+  # live data. Genuine unreachability still yields 0, which is safe only because
+  # up/1 re-reads the version in migration context before touching anything.
   def migrated_version_runtime(opts \\ []) do
     opts = with_defaults(opts, @initial_version)
-    read_version(PhoenixKit.RepoHelper.repo(), opts.escaped_prefix)
+    read_version(PhoenixKit.RepoHelper.repo(), opts.prefix)
   rescue
+    e in ArgumentError -> reraise e, __STACKTRACE__
     _ -> 0
   end
 
   # ── v1 ──────────────────────────────────────────────────────────────────
 
   defp up_v1(prefix) do
-    # Don't assume core's chain ran first — this is a no-op when the
-    # function already exists, and creates it inside `prefix` when it doesn't.
+    # Don't assume core's chain ran first. `uuid_generate_v7()` is built on
+    # pgcrypto's `gen_random_bytes` and `ensure_uuid_v7_function/1` does not
+    # install extensions — without the first line the function is created and
+    # then fails on the first insert.
+    Helpers.ensure_extension!("pgcrypto")
     Helpers.ensure_uuid_v7_function(prefix)
 
     create_if_not_exists table(:phoenix_kit_my_module_items,
@@ -1790,45 +1847,69 @@ defmodule MyModule.Migrations do
   end
 
   defp with_defaults(opts, version) do
-    opts = Enum.into(opts, %{prefix: @default_prefix, version: version})
+    opts = Enum.into(opts, %{})
+    prefix = Map.get(opts, :prefix) || @default_prefix
 
-    # The prefix is interpolated into raw SQL below.
-    Helpers.validate_prefix!(opts.prefix)
+    # The prefix is interpolated into the DDL above, so an invalid one has to
+    # fail here rather than reach the query text.
+    Helpers.validate_prefix!(prefix)
 
     opts
-    |> Map.put(:quoted_prefix, inspect(opts.prefix))
-    |> Map.put(:escaped_prefix, String.replace(opts.prefix, "'", "\\'"))
+    |> Map.put(:prefix, prefix)
+    |> Map.put_new(:version, version)
   end
 
-  defp read_version(repo, escaped_prefix) do
-    table_exists_query = """
+  # Reads use bound parameters, so the prefix never reaches the query text.
+  defp read_version(repo, prefix) do
+    if table_exists?(repo, prefix) do
+      repo |> table_comment(prefix) |> parse_version()
+    else
+      0
+    end
+  end
+
+  defp table_exists?(repo, prefix) do
+    query = """
     SELECT EXISTS (
       SELECT FROM information_schema.tables
-      WHERE table_name = '#{@version_table}'
-      AND table_schema = '#{escaped_prefix}'
+      WHERE table_name = $1 AND table_schema = $2
     )
     """
 
-    case repo.query(table_exists_query, [], log: false) do
-      {:ok, %{rows: [[true]]}} -> read_comment_version(repo, escaped_prefix)
-      _ -> 0
+    case repo.query(query, [@version_table, prefix], log: false) do
+      {:ok, %{rows: [[exists?]]}} -> exists?
+      {:error, error} -> raise error
     end
   end
 
-  defp read_comment_version(repo, escaped_prefix) do
-    version_query = """
-    SELECT pg_catalog.obj_description(pg_class.oid, 'pg_class')
-    FROM pg_class
-    LEFT JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
-    WHERE pg_class.relname = '#{@version_table}'
-    AND pg_namespace.nspname = '#{escaped_prefix}'
+  defp table_comment(repo, prefix) do
+    query = """
+    SELECT pg_catalog.obj_description(c.oid, 'pg_class')
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = $1 AND n.nspname = $2
     """
 
-    case repo.query(version_query, [], log: false) do
-      {:ok, %{rows: [[version]]}} when is_binary(version) -> String.to_integer(version)
-      _ -> 1
+    case repo.query(query, [@version_table, prefix], log: false) do
+      {:ok, %{rows: [[comment]]}} -> comment
+      {:ok, %{rows: []}} -> nil
+      {:error, error} -> raise error
     end
   end
+
+  # A numeric comment is the marker. Anything else on a table that exists means
+  # V1 — either no comment yet, or someone else's prose. `Integer.parse/1` and
+  # not `String.to_integer/1`: the latter RAISES on prose, and that raise lands
+  # in migrated_version_runtime's rescue, which turns it into 0 — "not
+  # installed" for a populated table.
+  defp parse_version(comment) when is_binary(comment) do
+    case Integer.parse(String.trim(comment)) do
+      {version, ""} -> version
+      _ -> @initial_version
+    end
+  end
+
+  defp parse_version(_), do: @initial_version
 end
 ```
 
@@ -1891,6 +1972,56 @@ defp apply_step(:up, 2, prefix), do: up_v2(prefix)
 defp apply_step(:down, 2, prefix), do: down_v2(prefix)
 
 @current_version 2  # was 1
+```
+
+Two rules that only bite at V2, so they are easy to ship without noticing:
+
+- **The version must be *stored*, not inferred.** A reader that answers "is the
+  table there?" cannot tell V1 from V2, so it reports the target version for
+  every host and core skips the delta — printing success while applying nothing.
+  That is why the marker lives in `COMMENT ON TABLE`.
+- **Repair inference and rollback together.** While the marker is inferred, no
+  host with an existing table is ever handed an upgrade migration, so a `down/1`
+  that always drops is unreachable and looks harmless. Fix the marker alone and
+  you arm it: real `down(version: N > 0)` calls start the same day.
+
+#### Auditing a live host
+
+```bash
+mix phoenix_kit_hello_world.audit_migrations
+mix phoenix_kit_hello_world.audit_migrations --prefix auth
+```
+
+Run in the host app against a migrated database. For every installed module that
+declares a `migration_module/0` it checks the protocol exports, that an absent
+schema reports 0, that an unusable prefix raises instead of reporting 0, that the
+reported version is not ahead of the shipped code, and — when the coordinator
+exports `version_table/0` — that the stored marker is actually a number rather
+than someone's prose description. Read-only, and exits non-zero on failure so it
+can gate a release.
+
+Everything it checks is silent when broken, which is the point: none of these
+defects produce an error message, and a database-less test suite cannot see any
+of them.
+
+What it cannot decide for you is who owns the table. These three queries settle
+that, and they disagree with the source more often than you would expect:
+
+```sql
+-- is the marker a number, or someone else's prose?
+SELECT pg_catalog.obj_description(c.oid, 'pg_class')
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = '<your table>';
+
+-- whose index names are these?
+SELECT indexname FROM pg_indexes
+WHERE schemaname = 'public' AND tablename = '<your table>';
+
+-- whose CREATE TABLE ran? column ORDER is the fingerprint
+SELECT column_name, data_type, character_maximum_length, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = '<your table>'
+ORDER BY ordinal_position;
 ```
 
 #### Prefix safety
