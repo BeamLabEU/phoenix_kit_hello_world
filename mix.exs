@@ -1,7 +1,7 @@
 defmodule PhoenixKitHelloWorld.MixProject do
   use Mix.Project
 
-  @version "0.1.9"
+  @version "0.2.0"
   @source_url "https://github.com/BeamLabEU/phoenix_kit_hello_world"
 
   def project do
@@ -20,7 +20,7 @@ defmodule PhoenixKitHelloWorld.MixProject do
       package: package(),
 
       # Dialyzer
-      dialyzer: [plt_add_apps: [:phoenix_kit]],
+      dialyzer: [plt_add_apps: [:phoenix_kit, :mix]],
 
       # Docs
       name: "PhoenixKitHelloWorld",
@@ -83,7 +83,7 @@ defmodule PhoenixKitHelloWorld.MixProject do
       # 1.7.214+ required: Scope.can_access_admin_area?/1 (the rename of the
       # now-`@deprecated` Scope.admin?/1) — an older core has no such function,
       # so this is an UndefinedFunctionError at runtime, not a warning.
-      pk_dep(:phoenix_kit, "~> 1.7.214"),
+      pk_dep(:phoenix_kit, "~> 2.0"),
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.1"},

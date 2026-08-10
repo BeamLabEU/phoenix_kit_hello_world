@@ -208,30 +208,32 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
 
   defp check_version_marker(coordinator, prefix) do
     if function_exported?(coordinator, :version_table, 0) do
-      table = coordinator.version_table()
-
-      case safe(fn -> read_comment(table, prefix) end) do
-        {:ok, :no_table} ->
-          {:ok, "version marker is numeric",
-           "#{table} does not exist in #{prefix} — nothing installed, nothing to mark"}
-
-        {:ok, nil} ->
-          {:warn, "version marker is numeric",
-           "#{table} exists with no COMMENT at all. Readable as V1 by convention, but the " <>
-             "marker is not being written — check that record_version/2 runs after each step"}
-
-        {:ok, comment} ->
-          classify_comment(table, comment)
-
-        {:raised, e} ->
-          {:warn, "version marker is numeric", "could not read: #{Exception.message(e)}"}
-      end
+      inspect_version_marker(coordinator.version_table(), prefix)
     else
       {:warn, "version marker is numeric",
        "unverifiable: #{inspect(coordinator)} does not export version_table/0. Add " <>
          "`def version_table, do: @version_table`, or check by hand with: SELECT " <>
          "pg_catalog.obj_description(c.oid,'pg_class') FROM pg_class c JOIN pg_namespace n " <>
          "ON n.oid=c.relnamespace WHERE n.nspname='#{prefix}' AND c.relname='<your table>';"}
+    end
+  end
+
+  defp inspect_version_marker(table, prefix) do
+    case safe(fn -> read_comment(table, prefix) end) do
+      {:ok, :no_table} ->
+        {:ok, "version marker is numeric",
+         "#{table} does not exist in #{prefix} — nothing installed, nothing to mark"}
+
+      {:ok, nil} ->
+        {:warn, "version marker is numeric",
+         "#{table} exists with no COMMENT at all. Readable as V1 by convention, but the " <>
+           "marker is not being written — check that record_version/2 runs after each step"}
+
+      {:ok, comment} ->
+        classify_comment(table, comment)
+
+      {:raised, e} ->
+        {:warn, "version marker is numeric", "could not read: #{Exception.message(e)}"}
     end
   end
 

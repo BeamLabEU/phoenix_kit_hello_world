@@ -1,3 +1,51 @@
+## 0.2.0 - 2026-08-10
+
+### Changed
+
+- **⚠️ Requires `phoenix_kit ~> 2.0`.** The core pin moved to `~> 2.0`, so this
+  release no longer resolves against core 1.7.
+
+  Core 2.0.0 squashes the migration chain into a single `V135` baseline and makes
+  V135 the chain's floor: `mix ecto.migrate` now *refuses* on a database below it
+  rather than migrating. Check `mix phoenix_kit.status` **before** upgrading. A
+  host below V135 must install `phoenix_kit 1.7.236` — the migration bridge, the
+  last release carrying the full pre-squash chain — migrate until the reported
+  version is at least V135, and only then move to 2.0.
+
+  This package does not call migration internals, so the change is the pin
+  itself.
+
+### Added
+
+- **`mix phoenix_kit_hello_world.audit_migrations` (PR #34)** — audits a module
+  migration coordinator against the rules this template documents, on a live
+  database.
+- **Reference project-extension provider (PR #33)** —
+  `phoenix_kit_project_extensions/0` plus `Web.ProjectHelloTabLive`, the
+  canonical minimal implementation of the projects-hub extension contract, with
+  a test pinning the contributed shape.
+
+### Fixed
+
+Three bugs in the migration-coordinator template every module was copied from
+(PR #34). Each disguised itself as a healthy reading:
+
+- **`String.to_integer/1` on the version comment raises** on a non-numeric
+  comment, and the raise landed in a blanket `rescue _ -> 0` — so a populated
+  table reported **"not installed"**. The comment slot is not always free: core
+  V43 puts a prose description on `phoenix_kit_consent_logs`. Now
+  `Integer.parse/1` with an `@initial_version` fallback.
+- **`migrated_version_runtime/1` swallowed everything into `0`**, so an invalid
+  `--prefix` read as a fresh install and the updater generated DDL against live
+  data. Now re-raises `ArgumentError`, matching core.
+- **`up_v1/1` ensured the uuid function but not pgcrypto**, so
+  `uuid_generate_v7()` was created and then failed on the first insert.
+
+Also on `main`, fixing gate failures in PR #34 itself: extracted a too-deeply
+nested `case` out of the auditor's `check_version_marker/2` (credo --strict),
+and added `:mix` to `plt_add_apps` — the auditor is this package's first Mix
+task, and dialyzer could not resolve `Mix.shell/0` without it.
+
 ## 0.1.9 - 2026-08-02
 
 Documents the current policy for module database tables: **a module ships the

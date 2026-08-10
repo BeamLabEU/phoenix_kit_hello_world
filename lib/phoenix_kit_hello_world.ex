@@ -19,7 +19,7 @@ defmodule PhoenixKitHelloWorld do
 
   Add to your parent app's `mix.exs`:
 
-      {:phoenix_kit_hello_world, "~> 0.1.0"}
+      {:phoenix_kit_hello_world, "~> 0.2"}
 
   Or for local development:
 
@@ -146,7 +146,7 @@ defmodule PhoenixKitHelloWorld do
 
   @impl PhoenixKit.Module
   @doc "Version string. Shown on the admin Modules page."
-  def version, do: "0.1.9"
+  def version, do: "0.2.0"
 
   @impl PhoenixKit.Module
   @doc """
