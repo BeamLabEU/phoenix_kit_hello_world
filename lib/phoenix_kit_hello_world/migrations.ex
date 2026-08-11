@@ -346,3 +346,80 @@
 #     Cover the cases a unit test cannot fake: rollback to a NON-ZERO
 #     version keeps the table, a foreign prose comment reads as V1, and a
 #     named-schema install resolves the uuid default.
+#
+# ## Adopting a table core already creates (extraction)
+#
+# Some module tables were born in core: the module used to live there
+# (Legal — core's V43 created `phoenix_kit_consent_logs` in the commit that
+# added the module), or the table simply predates the module-owned
+# protocol. Those tables ship in core's squashed baseline, so on every
+# existing install the table exists BEFORE your chain first runs.
+# Extraction is therefore an ADOPTION, and it unfolds in phases. The live
+# reference is `phoenix_kit_legal` — `PhoenixKit.Modules.Legal.Migrations`
+# plus its `dev_docs/reports/2026-08-10-consent-logs-extraction.md`, which
+# records the failure modes each rule below exists to prevent.
+#
+# ### Phase 0 — your V1 adopts, and changes NOTHING
+#
+#   * V1 is `CREATE TABLE IF NOT EXISTS` + the marker stamp,
+#     shape-identical to core's baseline with core's EXACT object names
+#     (pkey, every index). On today's installs everything already exists
+#     and only the marker is new; on a future install whose core no longer
+#     creates the table (Phase 2), the same statements build it. Both
+#     paths must end identical — that is what makes the later phases safe.
+#   * Build the DDL from your schema module's single shape authority
+#     (legal interpolates `ConsentLog.column_widths/0` into the DDL and
+#     never restates a number — three disagreeing DDLs of one table is how
+#     it learned that).
+#   * Expose the statements as data and pin them with tests: widths equal
+#     the authority, object names equal core's, every statement
+#     idempotence-guarded — and for a data-bearing table, no statement in
+#     EITHER direction matches DROP/TRUNCATE/DELETE. An audit-trail table
+#     must survive `down/1`: unstamp the marker, keep the rows.
+#   * Because V1 changes no shape, core's `ExpectedSchema` manifest stays
+#     accurate: NO core change ships in this phase and there is no
+#     release-ordering hazard. Your module releases alone.
+#
+# ### Phase 1 — the first shape change (your V2+) is when core moves
+#
+#   `mix phoenix_kit.repair` asserts the baseline shape of the table until
+#   told otherwise. BEFORE releasing a shape-changing version:
+#
+#   1. add the objects your version alters to the manifest generator's
+#      `@excluded_exact` in core (`dev_docs/squash/generate_baseline.exs`)
+#      and regenerate `ExpectedSchema` — the maintainer-tooling step the
+#      document_creator/projects chains already rely on;
+#   2. raise your package's core floor to the release that ships that
+#      manifest.
+#
+#   Skip step 1 and repair "fixes" your table back after every run.
+#
+# ### Phase 2 — creation leaves core at the next squash cycle
+#
+#   When core cuts its next baseline, module-owned tables are simply not
+#   included: fresh installs from then on get the table from your V1 —
+#   which is why V1 must be able to create the FULL table even though
+#   today it always finds one. Existing installs are untouched; a baseline
+#   only affects fresh installs and below-floor bridging.
+#
+# ### What must NEVER happen
+#
+#   * No conditional core migration of the form "module absent → drop the
+#     table". A migration whose result depends on which packages are
+#     compiled in at run time is nondeterministic — it breaks the
+#     manifest, the chain hash and the squash verification oracles — and
+#     it destroys data on the host that merely removed a package from
+#     deps: dropping the package is not consent to dropping the audit
+#     trail.
+#   * No automatic uninstall at all. Removing the module's data is a HUMAN
+#     step: ship a "removing this module" snippet in your README (drop the
+#     table, remove the marker) for the operator to run deliberately.
+#
+# ### Marker naming for adopted tables
+#
+#   The template above records a bare number, which is fine for a table
+#   your chain created from scratch. An ADOPTED table has lived in core
+#   for years and may carry someone's prose comment already — namespace
+#   your marker (`pkl_schema:1`, `dcr_schema:1`, `pkp_schema:14`) so your
+#   reader can tell its own marker from a foreign comment, and treat any
+#   foreign comment as version 0, never crash on it.

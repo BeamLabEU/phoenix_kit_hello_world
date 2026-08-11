@@ -84,6 +84,11 @@ defmodule PhoenixKitHelloWorld.MixProject do
       # now-`@deprecated` Scope.admin?/1) — an older core has no such function,
       # so this is an UndefinedFunctionError at runtime, not a warning.
       pk_dep(:phoenix_kit, "~> 2.0"),
+      # Build MDEx's Rust NIF from source on OTP versions it ships no
+      # compatible precompiled NIF for — same escape hatch core's mix.exs
+      # carries: MDEx's force_build requires rustler itself, not just
+      # rustler_precompiled. Optional: pulled only to compile the NIF.
+      {:rustler, ">= 0.0.0", optional: true},
 
       # LiveView is needed for the admin page.
       {:phoenix_live_view, "~> 1.1"},

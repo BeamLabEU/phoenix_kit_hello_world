@@ -339,6 +339,20 @@ template ships instead is the copyable shape:
 | `README.md` → "Versioned migrations" | The same material as prose, with the V2 / prefix-safety / testing sections |
 | `lib/mix/tasks/phoenix_kit_hello_world.audit_migrations.ex` | Runnable audit of every installed module's coordinator against the rules below. Read-only, exits non-zero on failure |
 
+**Adopting a table core already creates (extraction).** Tables that were born
+in core (the module once lived there, or the table predates the protocol)
+are extracted by ADOPTION, in phases: the module's V1 re-asserts core's exact
+shape idempotently and stamps a namespaced marker — no core change, no
+ordering hazard; the first shape-changing version (V2+) requires core's
+manifest generator `@excluded_exact` + regeneration BEFORE the module
+releases; creation itself leaves core only at the next baseline squash. Never
+a conditional "module absent → drop" migration (nondeterministic, and it
+destroys data when a host merely removes a package). The full protocol with
+rationale is the "Adopting a table core already creates" section of
+`lib/phoenix_kit_hello_world/migrations.ex`; the live reference is
+`phoenix_kit_legal` (`PhoenixKit.Modules.Legal.Migrations` and its
+`dev_docs/reports/2026-08-10-consent-logs-extraction.md`).
+
 Registering one is a single callback in your module:
 
 ```elixir

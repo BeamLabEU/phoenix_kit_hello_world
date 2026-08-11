@@ -2041,6 +2041,42 @@ scatters half the module's tables into `public`. Rules:
   strings: `qualify_table/2`, `uuid_v7_call/1`, `ensure_uuid_v7_function/1`,
   `validate_prefix!/1`.
 
+#### Adopting a table core already creates (extraction)
+
+Some module tables were born in core — the module once lived there, or the
+table predates the module-owned protocol — and ship in core's squashed
+baseline, so on every existing install the table exists before your chain
+first runs. Extraction is an **adoption**, in phases (live reference:
+`phoenix_kit_legal`, `PhoenixKit.Modules.Legal.Migrations` and its
+`dev_docs/reports/2026-08-10-consent-logs-extraction.md`):
+
+- **Phase 0 — V1 adopts, changes nothing.** `CREATE TABLE IF NOT EXISTS`
+  shape-identical to core's baseline with core's exact object names, then a
+  **namespaced** marker stamp (`pkl_schema:1` — an adopted table may carry a
+  foreign comment, and your reader must treat prose as version 0). Build the
+  DDL from your schema module's single shape authority, expose the statements
+  as data, and test-pin them: widths, core's names, idempotence guards, and —
+  for data-bearing tables — no `DROP`/`TRUNCATE`/`DELETE` in either
+  direction. An audit-trail table survives `down/1`: unstamp, keep the rows.
+  Because the shape is unchanged, core's `ExpectedSchema` stays accurate —
+  **no core release is needed and there is no ordering hazard**.
+- **Phase 1 — your first shape change (V2+) is when core moves.** Before that
+  release: add the altered objects to core's manifest generator
+  `@excluded_exact` and regenerate `ExpectedSchema` (maintainer tooling),
+  then raise your core floor to that release — otherwise
+  `mix phoenix_kit.repair` restores the old shape after every run.
+- **Phase 2 — creation leaves core at the next baseline squash.** Fresh
+  installs then get the table from your V1, which is why V1 must be able to
+  create the full table even though today it always finds one. Existing
+  installs are untouched.
+
+Never write a conditional core migration of the form "module absent → drop
+the table": it is nondeterministic (the schema would depend on which packages
+are compiled in, breaking the manifest, the chain hash and the squash
+verification oracles) and it destroys data on hosts that merely removed the
+package. Real uninstalls are a human step — ship a "removing this module"
+snippet in your README instead.
+
 #### Testing your migration
 
 A coordinator that compiles is not a coordinator that runs. `up/1` uses
