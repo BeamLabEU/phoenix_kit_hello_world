@@ -352,8 +352,11 @@
 # Some module tables were born in core: the module used to live there
 # (Legal — core's V43 created `phoenix_kit_consent_logs` in the commit that
 # added the module), or the table simply predates the module-owned
-# protocol. Those tables ship in core's squashed baseline, so on every
-# existing install the table exists BEFORE your chain first runs.
+# protocol. V43 is history, not a file: core 2.0 squashed the chain to a
+# V135 floor, so the table now arrives from `v135.ex` and the shape to
+# match is the one `PhoenixKit.Migrations.ExpectedSchema` records. Those
+# tables ship in core's squashed baseline, so on every existing install
+# the table exists BEFORE your chain first runs.
 # Extraction is therefore an ADOPTION, and it unfolds in phases. The live
 # reference is `phoenix_kit_legal` — `PhoenixKit.Modules.Legal.Migrations`
 # plus its `dev_docs/reports/2026-08-10-consent-logs-extraction.md`, which

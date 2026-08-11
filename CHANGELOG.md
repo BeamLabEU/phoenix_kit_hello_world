@@ -1,3 +1,26 @@
+## 0.2.1 - 2026-08-11
+
+### Added
+
+- **The core-table adoption protocol** (#36) — the missing chapter of the
+  migration template: how a module extracts a table that core already creates.
+  Phase 0, the module's V1 adopts and changes nothing (shape-identical
+  `CREATE TABLE IF NOT EXISTS` with core's exact object names plus a namespaced
+  marker), so core's `ExpectedSchema` stays accurate and no core release is
+  needed. Phase 1, the first shape change is when core moves. Phase 2, creation
+  leaves core at the next baseline squash. Documented in all three of the
+  repo's canonical places, with `phoenix_kit_legal` 0.4.0 as the live reference.
+
+  Called out as forbidden: a conditional "module absent → drop the table"
+  migration. It is nondeterministic against the manifest, the chain hash and the
+  squash oracles, and it destroys data on a host that merely removed the package.
+
+### Changed
+
+- Carries core's rustler escape hatch (`{:rustler, ">= 0.0.0", optional: true}`)
+  so MDEx's NIF builds from source on OTP versions shipping no compatible
+  precompiled NIF.
+
 ## 0.2.0 - 2026-08-10
 
 ### Changed
