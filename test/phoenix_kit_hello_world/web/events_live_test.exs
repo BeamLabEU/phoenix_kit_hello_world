@@ -62,12 +62,16 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
       {:ok, _view, html} = live(conn, "/en/admin/hello-world/events")
 
       # Issue #27 delta: the filter is core's `<.select>` now, which renders
-      # its label through `FormFieldLabel.label/1` — a multi-line
-      # `<span class="label-text ...">`, so match it with whitespace slack
-      # rather than the old `>Action</span>` exact form. `>Clear<` likewise
-      # would NOT match because the button uses multi-line HEEX; match the
-      # button by its phx-click target instead.
-      assert html =~ ~r/class="label-text[^"]*">\s*Action\s*<\/span>/
+      # its label through `FormFieldLabel.label/1` as a multi-line `<span>`,
+      # so match with whitespace slack rather than the old `>Action</span>`
+      # exact form. `>Clear<` likewise would NOT match because the button uses
+      # multi-line HEEX; match the button by its phx-click target instead.
+      #
+      # Deliberately NOT pinned to the label's daisyUI class: that class lives
+      # in core and changed with the daisyUI 4->5 sweep, so asserting it here
+      # couples this test to whichever core version hex happens to resolve.
+      # What this test is about is that the label renders and is translated.
+      assert html =~ ~r/<span[^>]*>\s*Action\s*<\/span>/
       assert html =~ ~r/phx-click="clear_filters"[^>]*>\s*Clear\s*</s
       assert html =~ "All Actions"
     end

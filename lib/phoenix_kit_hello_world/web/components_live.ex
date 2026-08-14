@@ -406,13 +406,13 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
     ~H"""
     <.showcase_section title="Form inputs" description="daisyUI form controls — text, textarea, select, checkbox.">
       <.form for={%{}} phx-change="noop" phx-submit="noop" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Text input</span></label>
-          <input type="text" placeholder="Type here" class="input input-bordered input-sm" />
+        <div class="fieldset">
+          <label class="label"><span class="fieldset-legend">Text input</span></label>
+          <input type="text" placeholder="Type here" class="input input-sm" />
         </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Select</span></label>
-          <label class="select select-bordered select-sm">
+        <div class="fieldset">
+          <label class="label"><span class="fieldset-legend">Select</span></label>
+          <label class="select select-sm">
             <select>
               <option>Option A</option>
               <option>Option B</option>
@@ -420,26 +420,26 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
             </select>
           </label>
         </div>
-        <div class="form-control md:col-span-2">
-          <label class="label"><span class="label-text">Textarea</span></label>
-          <textarea class="textarea textarea-bordered" rows="3" placeholder="Multi-line..."></textarea>
+        <div class="fieldset md:col-span-2">
+          <label class="label"><span class="fieldset-legend">Textarea</span></label>
+          <textarea class="textarea" rows="3" placeholder="Multi-line..."></textarea>
         </div>
-        <div class="form-control">
+        <div class="fieldset">
           <label class="label cursor-pointer justify-start gap-2">
             <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" checked />
-            <span class="label-text">Checkbox</span>
+            <span class="fieldset-legend">Checkbox</span>
           </label>
         </div>
-        <div class="form-control">
+        <div class="fieldset">
           <label class="label cursor-pointer justify-start gap-2">
             <input type="radio" name="radio-demo" class="radio radio-primary radio-sm" checked />
-            <span class="label-text">Radio</span>
+            <span class="fieldset-legend">Radio</span>
           </label>
         </div>
       </.form>
       <:snippet>
-        <code>{~s|<input type="text" class="input input-bordered input-sm" />|}</code>
-        <code>{~s|<label class="select select-bordered select-sm"><select>...</select></label>|}</code>
+        <code>{~s|<input type="text" class="input input-sm" />|}</code>
+        <code>{~s|<label class="select select-sm"><select>...</select></label>|}</code>
         <p class="text-xs text-base-content/50">
           Note: daisyUI 5 requires the wrapper <code>&lt;label class="select"&gt;</code> pattern around <code>&lt;select&gt;</code>.
         </p>
