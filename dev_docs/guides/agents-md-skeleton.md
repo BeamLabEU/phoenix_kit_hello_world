@@ -26,6 +26,25 @@ link — agents do not reliably follow links, and a rule with no *why* gets
    `enabled?/0`, activity logging, soft-delete sentinel. Ends with a
    `### Landmines` subsection of two to five module-local traps, one line each,
    symptom then fix. Ecosystem-wide traps belong in the workspace lessons file.
+
+   A bullet earns its place only if ALL of these hold. Fail any one and it
+   does not belong:
+
+   1. **Still true** of the code as it stands — not a fixed bug, not history.
+   2. **Cannot reasonably be fixed or diagnosed in code.** If a code change
+      would prevent it, or make it fail with a clear message instead of a
+      confusing one, *do that instead and write nothing here.*
+   3. **Project-specific.** General Elixir, Ecto or PostgreSQL knowledge is
+      not a landmine; a competent developer already has it.
+   4. **Costly or misleading when missed** — it wastes real debugging time,
+      typically because the failure looks like something else.
+   5. **Actionable as a rule or pointer**, not a story.
+   6. **No personal or machine-specific detail** — no usernames, hostnames,
+      local paths, dates, SHAs, or "I hit this once". These files are public
+      and are read by people who are not you.
+
+   Setup requirements a contributor must satisfy on their own machine are
+   documentation, not landmines: they belong in the README or a setup guide.
 5. **Architecture** — file tree, key modules, data model, PubSub topics,
    settings keys, permissions. Tables and trees over prose.
 6. **Database & migrations** — whether the module owns a versioned chain, its
