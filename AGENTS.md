@@ -46,6 +46,11 @@ PHOENIX_KIT_PATH=../phoenix_kit mix deps.get && PHOENIX_KIT_PATH=../phoenix_kit 
 
 `mix test.setup` (`ecto.create`) and `mix test.reset` (`ecto.drop` + create) wrap the test database; `test_helper.exs` builds the schema on every boot.
 
+Repo-local aliases:
+
+- `mix quality` — `format` + `credo --strict` + `dialyzer` (applies formatting).
+- `mix quality.ci` — `format --check-formatted` + `credo --strict` + `dialyzer`: it CHECKS formatting rather than applying it, so run `mix format` first.
+
 ## Conventions
 
 - **Module key** is lowercase with underscores (`"hello_world"`) and identical in `module_key/0`, `permission_metadata/0`'s `:key`, each tab's `:permission`, and the settings prefix. Core validates the permission key against `module_key/0` at startup.
