@@ -48,7 +48,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloWidgetTest do
       html =
         render_widget(
           view: "card",
-          scope: %{user: %{email: "max@don.ee"}},
+          scope: %{user: %{email: "user@example.com"}},
           settings: %{"greeting" => "Hei", "tone" => "success", "punctuation" => "?!"}
         )
 
