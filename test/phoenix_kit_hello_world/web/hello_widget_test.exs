@@ -52,7 +52,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloWidgetTest do
           settings: %{"greeting" => "Hei", "tone" => "success", "punctuation" => "?!"}
         )
 
-      assert html =~ "Hei, max?!"
+      assert html =~ "Hei, user?!"
       assert html =~ "text-success"
       # show_size defaults on.
       assert html =~ "3 × 2"
