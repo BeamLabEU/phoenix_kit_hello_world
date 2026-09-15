@@ -41,10 +41,12 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
       updater off to install a schema over live data.
     * **reported version ≤ target** — a reader claiming to be ahead of the
       shipped code is inferring rather than reading.
-    * **version marker is numeric** — only when the coordinator exports
-      `version_table/0`. A non-numeric `COMMENT ON TABLE` on an existing table
-      means the version is not stored there, so it is being inferred. This is
-      the check that catches the whole class.
+    * **version marker is a version** — only when the coordinator exports
+      `version_table/0`. A `COMMENT ON TABLE` on an existing table must carry
+      a version marker — a bare number, or a namespaced marker
+      (`<namespace>:<number>`, e.g. `pkl_schema:1`) for a table adopted from
+      core. Anything else means the version is not stored there, so it is
+      being inferred. This is the check that catches the whole class.
 
   Coordinators without `version_table/0` get the marker check reported as
   unverifiable, with the query to run by hand. Exporting it is one line:
@@ -60,6 +62,7 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
 
   @absent_schema "pk_audit_absent_schema"
   @invalid_prefix "bad-prefix; DROP TABLE x"
+  @marker_namespace_re ~r/^[a-z][a-z0-9_]*$/
 
   @protocol [
     {:current_version, 0},
@@ -210,7 +213,7 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
     if function_exported?(coordinator, :version_table, 0) do
       inspect_version_marker(coordinator.version_table(), prefix)
     else
-      {:warn, "version marker is numeric",
+      {:warn, "version marker is a version",
        "unverifiable: #{inspect(coordinator)} does not export version_table/0. Add " <>
          "`def version_table, do: @version_table`, or check by hand with: SELECT " <>
          "pg_catalog.obj_description(c.oid,'pg_class') FROM pg_class c JOIN pg_namespace n " <>
@@ -221,11 +224,11 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
   defp inspect_version_marker(table, prefix) do
     case safe(fn -> read_comment(table, prefix) end) do
       {:ok, :no_table} ->
-        {:ok, "version marker is numeric",
+        {:ok, "version marker is a version",
          "#{table} does not exist in #{prefix} — nothing installed, nothing to mark"}
 
       {:ok, nil} ->
-        {:warn, "version marker is numeric",
+        {:warn, "version marker is a version",
          "#{table} exists with no COMMENT at all. Readable as V1 by convention, but the " <>
            "marker is not being written — check that record_version/2 runs after each step"}
 
@@ -233,17 +236,46 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
         classify_comment(table, comment)
 
       {:raised, e} ->
-        {:warn, "version marker is numeric", "could not read: #{Exception.message(e)}"}
+        {:warn, "version marker is a version", "could not read: #{Exception.message(e)}"}
     end
   end
 
-  defp classify_comment(table, comment) do
-    case Integer.parse(String.trim(comment)) do
-      {version, ""} ->
-        {:ok, "version marker is numeric", "#{table} is marked V#{pad(version)}"}
+  @doc false
+  def parse_marker(comment) do
+    trimmed = String.trim(comment)
 
-      _ ->
-        {:fail, "version marker is numeric",
+    case String.split(trimmed, ":", parts: 2) do
+      [namespace, version_str] ->
+        if namespace != "" and Regex.match?(@marker_namespace_re, namespace) do
+          parse_version_str(version_str, namespace)
+        else
+          :error
+        end
+
+      [bare] ->
+        parse_version_str(bare, nil)
+    end
+  end
+
+  defp parse_version_str(str, namespace) do
+    case Integer.parse(str) do
+      {version, ""} -> {:ok, version, namespace}
+      _ -> :error
+    end
+  end
+
+  @doc false
+  def classify_comment(table, comment) do
+    case parse_marker(comment) do
+      {:ok, version, nil} ->
+        {:ok, "version marker is a version", "#{table} is marked V#{pad(version)}"}
+
+      {:ok, version, namespace} ->
+        {:ok, "version marker is a version",
+         "#{table} is marked V#{pad(version)} (marker `#{namespace}:#{version}`)"}
+
+      :error ->
+        {:fail, "version marker is a version",
          "#{table} carries prose, not a version: #{inspect(String.slice(comment, 0, 60))}. " <>
            "The version is therefore being inferred — most likely from the table existing, " <>
            "which reports \"current\" at every version you ship and skips every delta"}

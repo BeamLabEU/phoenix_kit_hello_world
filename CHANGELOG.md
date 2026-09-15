@@ -1,3 +1,13 @@
+## Unreleased
+
+### Fixed
+
+- `mix phoenix_kit_hello_world.audit_migrations` no longer fails coordinators
+  that follow the documented namespaced marker convention for adopted tables
+  (`pkl_schema:1`, `pkb_schema:4`, `pkp_schema:14`, ...). The check —
+  previously "version marker is numeric", now "version marker is a version" —
+  accepts both a bare number and a `<namespace>:<number>` marker.
+
 ## 0.2.2 - 2026-08-11
 
 ### Changed
