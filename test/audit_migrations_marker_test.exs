@@ -2,6 +2,13 @@ defmodule PhoenixKitHelloWorld.AuditMigrationsMarkerTest do
   use ExUnit.Case, async: true
 
   alias Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations
+  alias PhoenixKit.Migrations.Postgres.Helpers
+
+  describe "absent_schema/0" do
+    test "is a prefix core's own validator accepts" do
+      assert Helpers.validate_prefix!(AuditMigrations.absent_schema()) == :ok
+    end
+  end
 
   describe "parse_marker/1" do
     test "a bare version number parses with no namespace" do

@@ -60,9 +60,15 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
 
   @requirements ["app.start"]
 
-  @absent_schema "pk_audit_absent_schema"
+  # Must stay within PhoenixKit.Migrations.Postgres.Helpers.validate_prefix!/1's
+  # 20-byte ceiling (63 - 1 - 42, the longest embedded object name) — a
+  # coordinator that correctly delegates prefix validation to core's helper
+  # raises ArgumentError on a longer fixture, which is a false failure of the
+  # very check meant to reward that delegation.
+  @absent_schema "pk_audit_absent"
   @invalid_prefix "bad-prefix; DROP TABLE x"
   @marker_namespace_re ~r/^[a-z][a-z0-9_]*$/
+  @core_called_directly [:current_version, :up, :down, :migrated_version_runtime]
 
   @protocol [
     {:current_version, 0},
@@ -134,12 +140,23 @@ defmodule Mix.Tasks.PhoenixKitHelloWorld.AuditMigrations do
 
   defp protocol_ok, do: {:ok, "protocol", "all five functions exported"}
 
-  defp protocol_missing(missing) do
+  @doc false
+  def protocol_missing(missing) do
+    names = Enum.map(missing, fn {f, _a} -> f end)
     list = Enum.map_join(missing, ", ", fn {f, a} -> "#{f}/#{a}" end)
 
-    {:fail, "protocol",
-     "not exported: #{list} — mix phoenix_kit.update cannot drive this coordinator"}
+    consequence =
+      if Enum.any?(names, &(&1 in @core_called_directly)) do
+        "mix phoenix_kit.update cannot drive this coordinator"
+      else
+        "up/1 cannot re-read the version it is about to change"
+      end
+
+    {:fail, "protocol", "not exported: #{list} — #{consequence}"}
   end
+
+  @doc false
+  def absent_schema, do: @absent_schema
 
   defp behaviour_checks(coordinator, prefix) do
     [
