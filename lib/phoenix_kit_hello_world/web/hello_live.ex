@@ -109,17 +109,6 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
            Gettext.gettext(PhoenixKitWeb.Gettext, "Demo event logged — check the Events tab!")
          )}
 
-      :activity_unavailable ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           Gettext.gettext(
-             PhoenixKitWeb.Gettext,
-             "PhoenixKit.Activity is not loaded. Make sure the host app is up to date."
-           )
-         )}
-
       {:error, reason} ->
         Logger.warning("[HelloWorld] Failed to log demo event: #{inspect(reason)}")
 
@@ -134,38 +123,23 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
   # ── Activity logging ────────────────────────────────────────────
 
-  # Canonical PhoenixKit activity logging pattern for external modules.
-  # Guarded with Code.ensure_loaded?/1 so the module works even when Activity
-  # isn't available (e.g. on a very old PhoenixKit version).
+  # Canonical activity logging for external modules: core's
+  # `PhoenixKit.Activity.log/3` takes the module key, the action and options
+  # and never raises (a failure is logged there and returned as
+  # `{:error, _}`); `PhoenixKitWeb.Actor` reads who is acting.
   defp log_demo_event(socket) do
-    if Code.ensure_loaded?(PhoenixKit.Activity) do
-      PhoenixKit.Activity.log(%{
-        action: "hello_world.demo_event",
-        module: "hello_world",
-        mode: "manual",
-        actor_uuid: actor_uuid(socket),
-        resource_type: "hello_world",
-        metadata: %{
-          "source" => "showcase_button",
-          "triggered_at" => DateTime.to_iso8601(DateTime.utc_now())
-        }
-      })
-    else
-      :activity_unavailable
-    end
-  rescue
-    e ->
-      Logger.warning("[HelloWorld] Activity logging error: #{Exception.message(e)}")
-      {:error, e}
-  end
-
-  # Extract current user UUID from the socket for actor attribution.
-  # Returns nil if no user is logged in (e.g. system/background actions).
-  defp actor_uuid(socket) do
-    case socket.assigns[:phoenix_kit_current_user] do
-      %{uuid: uuid} -> uuid
-      _ -> nil
-    end
+    PhoenixKit.Activity.log(
+      "hello_world",
+      "hello_world.demo_event",
+      PhoenixKitWeb.Actor.opts(socket) ++
+        [
+          resource_type: "hello_world",
+          metadata: %{
+            "source" => "showcase_button",
+            "triggered_at" => DateTime.to_iso8601(DateTime.utc_now())
+          }
+        ]
+    )
   end
 
   # ── Render ───────────────────────────────────────────────────────

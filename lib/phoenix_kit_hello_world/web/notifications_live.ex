@@ -45,6 +45,7 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
 
   alias PhoenixKit.Notifications.{Events, Render}
   alias PhoenixKitHelloWorld.Paths
+  alias PhoenixKitWeb.Actor
 
   # A throwaway "Hello Bot" actor so the demo notification targets *you* while
   # keeping `actor_uuid != target_uuid` (otherwise core skips the fan-out — you
@@ -54,7 +55,7 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    user_uuid = current_user_uuid(socket)
+    user_uuid = Actor.uuid(socket)
 
     if connected?(socket) and is_binary(user_uuid) and notifications_available?() do
       # One line to receive {:notification_created | :notification_seen |
@@ -394,13 +395,6 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   defp with_user(socket, fun) do
     uuid = socket.assigns[:user_uuid]
     if is_binary(uuid) and notifications_available?(), do: fun.(uuid)
-  end
-
-  defp current_user_uuid(socket) do
-    case socket.assigns[:phoenix_kit_current_user] do
-      %{uuid: uuid} when is_binary(uuid) -> uuid
-      _ -> nil
-    end
   end
 
   defp notifications_available? do

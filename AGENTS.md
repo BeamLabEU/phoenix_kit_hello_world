@@ -20,9 +20,9 @@ Its job is to demonstrate the minimum viable shape of a PhoenixKit module. It de
 - **No Ecto schemas.** No DB-backed data of its own. The copyable all-comments schema template (UUIDv7 PK, `use PhoenixKit.SchemaPrefix`, naming and timestamp conventions) is `lib/phoenix_kit_hello_world/schemas/example_item.ex`, guarded by `test/schema_prefix_conformance_test.exs` — copy both when adding a first schema.
 - **No migrations.** A template has no business creating a table in every host that installs it, so `migration_module/0` stays at its `nil` default. See "Database & migrations".
 - **No JS hooks.** `js_sources/0` is unimplemented (default `[]`); every interactive page uses a core hook. See the JS bullet under Conventions before adding one.
-- **No `actor_opts/1` keyword-list helper.** `HelloLive` uses the simpler `actor_uuid/1`, which returns the UUID directly, because `Activity.log/1` takes a map. The `actor_opts/1` form returning `[actor_uuid: uuid]` belongs in modules that thread it through context functions accepting `opts \\ []`.
+- **No actor helper of its own.** `HelloLive` passes core's `PhoenixKitWeb.Actor.opts(socket)` straight into `PhoenixKit.Activity.log/3`; a module whose context functions accept `opts \\ []` threads the same list through them.
 
-Extending the template into a real module usually adds, in this order: context module → schemas (plus the migration coordinator that creates their tables) → `Errors` dispatcher → `actor_opts/1` helper. `phoenix_kit_locations` is the smallest end-to-end reference of all four.
+Extending the template into a real module usually adds, in this order: context module → schemas (plus the migration coordinator that creates their tables) → `Errors` dispatcher. `phoenix_kit_locations` is the smallest end-to-end reference of all three.
 
 ## Commands
 
@@ -61,7 +61,7 @@ Repo-local aliases:
 - **Gettext** is core's backend: `Gettext.gettext(PhoenixKitWeb.Gettext, "…")`. This module ships no `priv/gettext` and no backend of its own; user-facing strings (including `page_title`, `page_subtitle`, flashes, button labels and empty-state copy) are wrapped, while code samples inside `<pre>` blocks are not.
 - **JS hooks ship as a prebuilt bundle declared by `js_sources/0`**, never registered from an inline `<script>`. Prefer a core hook first — core's hooks are in the host's `LiveSocket` at construction, so they work however the page is reached (`<.load_more infinite>`/`InfiniteScroll` is the one this module uses). When core has none, ship your own `priv/static/assets/<app>.js` and return `[%{app: :your_app, file: "static/assets/your_app.js", global: "YourAppHooks"}]` from `js_sources/0`; the `:phoenix_kit_js_sources` compiler folds the global into `window.PhoenixKitHooks`. The `:global` must be unique (the compiler fails on a collision) and hook names inside the bundle must be namespaced, because the final fold is last-write-wins on hook names and would silently override a core hook. An inline `<script>` in `render/1` is the broken pattern: morphdom does not execute inserted script tags, so the hook binds to nothing after `navigate/2` with no error.
 - **`enabled?/0` must never raise.** It reads a DB-backed setting, so it `rescue`s any exception *and* catches `:exit` (pool checkout can exit around startup or after a test sandbox owner stops), returning `false` from every branch so callers need no startup-ordering special cases.
-- **Activity logging** uses the canonical pattern below — guarded, rescued, actor threaded from the socket. Never put PII in `metadata`; it is a queryable audit trail, so pass uuids and short machine-readable keys.
+- **Activity logging** uses the canonical pattern below — core's never-raising `PhoenixKit.Activity.log/3`, the actor from `PhoenixKitWeb.Actor`. Never put PII in `metadata`; it is a queryable audit trail, so pass uuids and short machine-readable keys.
 - **`css_sources/0` returns the OTP app atom list** (`[:phoenix_kit_hello_world]`) for any module whose templates carry Tailwind classes. Discovery is automatic at compile time: the `:phoenix_kit_css_sources` compiler scans discovered modules and writes `assets/css/_phoenix_kit_sources.css`, which the host's `app.css` imports.
 - **Keep the core pin two-segment** (`~> 2.0`). A three-segment `~> 2.0.x` expands to `< 2.1.0` and makes `mix deps.get` unsolvable for any host running a newer core minor — breakage that lands only on consumers. `test/core_pin_conformance_test.exs` fails the build on a narrowed pin and on a committed `path:` dep.
 - **No soft-delete sentinel** — the module owns no records.
@@ -140,35 +140,17 @@ The canonical shape for external modules (`HelloLive.log_demo_event/1`):
 
 ```elixir
 defp log_demo_event(socket) do
-  if Code.ensure_loaded?(PhoenixKit.Activity) do
-    PhoenixKit.Activity.log(%{
-      action: "hello_world.demo_event",
-      module: "hello_world",
-      mode: "manual",
-      actor_uuid: actor_uuid(socket),
-      resource_type: "hello_world",
-      metadata: %{"source" => "showcase_button"}
-    })
-  else
-    :activity_unavailable
-  end
-rescue
-  e ->
-    Logger.warning("[HelloWorld] Activity logging error: #{Exception.message(e)}")
-    {:error, e}
-end
-
-defp actor_uuid(socket) do
-  case socket.assigns[:phoenix_kit_current_user] do
-    %{uuid: uuid} -> uuid
-    _ -> nil
-  end
+  PhoenixKit.Activity.log(
+    "hello_world",
+    "hello_world.demo_event",
+    PhoenixKitWeb.Actor.opts(socket) ++
+      [resource_type: "hello_world", metadata: %{"source" => "showcase_button"}]
+  )
 end
 ```
 
-- **Guard with `Code.ensure_loaded?/1`** so the module works on hosts without activity logging.
-- **Rescue every exception** — a logging failure must never crash the primary operation.
-- **Thread the actor** from `socket.assigns[:phoenix_kit_current_user]`.
+- **Call `PhoenixKit.Activity.log/3` directly** — module key, action, options. It never raises: a failed insert, a raise, an exit or a throw is logged there and returned as `{:error, _}`, so no guard or rescue of your own.
+- **Read the actor with `PhoenixKitWeb.Actor`** (`opts/1` for an options list, `uuid/1` for the bare uuid) — the scope first, then the bare current user — never from assigns by hand.
 - **Action format** is `"resource.verb"` (`"hello_world.demo_event"`).
 - **Mode** is `"manual"` for user-triggered and `"auto"` for system or background work.
 
