@@ -8,16 +8,14 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   ## The one rule: notifications are driven by the activity log
 
   You **never** insert into `phoenix_kit_notifications` directly. Instead you log
-  a business activity with `PhoenixKit.Activity.log/1`, and core's activity hook
+  a business activity with `PhoenixKit.Activity.log/3`, and core's activity hook
   fans it out into a per-user notification automatically:
 
-      PhoenixKit.Activity.log(%{
-        action: "post.created",        # "resource.verb"
-        module: "hello_world",         # your module_key()
+      PhoenixKit.Activity.log("hello_world", "post.created",  # module_key(), "resource.verb"
         actor_uuid: actor.uuid,        # who did it
         target_uuid: recipient.uuid,   # who should be notified
         ...
-      })
+      )
 
   A notification row is created **only when `target_uuid != actor_uuid`** — you
   don't notify someone about their own action. Admins reading `/admin/activity`
@@ -37,8 +35,6 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   """
 
   use Phoenix.LiveView
-
-  require Logger
 
   import PhoenixKitWeb.Components.Core.EmptyState, only: [empty_state: 1]
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
@@ -84,9 +80,9 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
 
   @impl true
   def handle_event("send_basic", _params, socket) do
-    log_demo_activity(socket, %{
-      action: "hello.greeting",
-      metadata: %{"actor_role" => "system", "greeting" => "Hello there!"}
+    log_demo_activity(socket, "hello.greeting", %{
+      "actor_role" => "system",
+      "greeting" => "Hello there!"
     })
 
     {:noreply,
@@ -101,14 +97,11 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   def handle_event("send_custom", _params, socket) do
     # The three `notification_*` metadata keys fully control how the row renders
     # in the inbox. Any one can be omitted — Render falls back to the action.
-    log_demo_activity(socket, %{
-      action: "hello.custom",
-      metadata: %{
-        "actor_role" => "system",
-        "notification_text" => "👋 A fully custom notification from Hello World!",
-        "notification_icon" => "hero-sparkles",
-        "notification_link" => Paths.notifications()
-      }
+    log_demo_activity(socket, "hello.custom", %{
+      "actor_role" => "system",
+      "notification_text" => "👋 A fully custom notification from Hello World!",
+      "notification_icon" => "hero-sparkles",
+      "notification_link" => Paths.notifications()
     })
 
     {:noreply,
@@ -181,16 +174,13 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
               "You never write to phoenix_kit_notifications directly. You log a business activity with a target_uuid, and core turns it into that user's notification — when target_uuid != actor_uuid."
             )}
           </p>
-          <pre phx-no-curly-interpolation class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>PhoenixKit.Activity.log(%{
-      action: "post.created",       # "resource.verb"
-      module: "hello_world",
-      mode: "manual",
+          <pre phx-no-curly-interpolation class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>PhoenixKit.Activity.log("hello_world", "post.created",  # module_key(), "resource.verb"
       actor_uuid: actor.uuid,       # who did it
       resource_type: "post",
       resource_uuid: post.uuid,
       target_uuid: recipient.uuid,  # who gets notified
       metadata: %{"actor_role" =&gt; "user"}
-    })</code></pre>
+    )</code></pre>
         </div>
       </div>
 
@@ -221,14 +211,11 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
               <p class="text-xs font-semibold text-base-content/60 uppercase mb-1">
                 {Gettext.gettext(PhoenixKitWeb.Gettext, "Plain")}
               </p>
-              <pre phx-no-curly-interpolation class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>PhoenixKit.Activity.log(%{
-      action: "hello.greeting",
-      module: "hello_world",
-      mode: "manual",
+              <pre phx-no-curly-interpolation class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>PhoenixKit.Activity.log("hello_world", "hello.greeting",
       actor_uuid: actor_uuid,
       target_uuid: you.uuid,
       metadata: %{"greeting" =&gt; "Hello there!"}
-    })</code></pre>
+    )</code></pre>
             </div>
             <div>
               <p class="text-xs font-semibold text-base-content/60 uppercase mb-1">
@@ -373,23 +360,20 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
     end)
   end
 
-  defp log_demo_activity(socket, attrs) do
+  # `log/3` never raises; the demo actor is a fixed uuid so the notification
+  # lands in YOUR inbox (a row is created only when target != actor).
+  defp log_demo_activity(socket, action, metadata) do
     uuid = socket.assigns[:user_uuid]
 
     if is_binary(uuid) and notifications_available?() do
-      base = %{
-        module: "hello_world",
-        mode: "manual",
+      PhoenixKit.Activity.log("hello_world", action,
         actor_uuid: @demo_actor_uuid,
         resource_type: "greeting",
         resource_uuid: Ecto.UUID.generate(),
-        target_uuid: uuid
-      }
-
-      PhoenixKit.Activity.log(Map.merge(base, attrs))
+        target_uuid: uuid,
+        metadata: metadata
+      )
     end
-  rescue
-    error -> Logger.warning("Hello World demo notification failed: #{inspect(error)}")
   end
 
   defp with_user(socket, fun) do

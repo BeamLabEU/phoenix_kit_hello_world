@@ -21,8 +21,9 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   pattern. Every mutating operation in your module should log an activity so actions
   are auditable in the Events tab and the global /admin/activity page.
 
-  See `log_demo_event/1` for the pattern — all logging is wrapped in
-  `Code.ensure_loaded?/1` so your module doesn't hard-require PhoenixKit.Activity.
+  See `log_demo_event/1` for the pattern: core's `PhoenixKit.Activity.log/3`
+  (module key, action, options — it never raises) with the acting user read
+  by `PhoenixKitWeb.Actor`.
 
   ## Assigns available
 
@@ -41,14 +42,12 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   alias PhoenixKitHelloWorld.Paths
 
   @demo_event_snippet """
-  PhoenixKit.Activity.log(%{
-    action: "hello_world.demo_event",
-    module: "hello_world",
-    mode: "manual",
-    actor_uuid: current_user.uuid,
-    resource_type: "hello_world",
-    metadata: %{"source" => "showcase_button"}
-  })
+  PhoenixKit.Activity.log(
+    "hello_world",
+    "hello_world.demo_event",
+    PhoenixKitWeb.Actor.opts(socket) ++
+      [resource_type: "hello_world", metadata: %{"source" => "showcase_button"}]
+  )
   """
 
   @impl true
