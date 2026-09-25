@@ -30,8 +30,8 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
     in `PhoenixKitHelloWorld`) so users can mute them in their settings.
   - **Live updates** over PubSub via `PhoenixKit.Notifications.Events.subscribe/1`.
 
-  Every core call is guarded with `Code.ensure_loaded?/1` so the module compiles
-  and runs even on a host that doesn't ship the notifications/activity contexts.
+  Core's notifications and activity contexts are called directly — the core
+  floor carries both, so nothing here is guarded with `Code.ensure_loaded?/1`.
   """
 
   use Phoenix.LiveView
@@ -53,7 +53,7 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   def mount(_params, _session, socket) do
     user_uuid = Actor.uuid(socket)
 
-    if connected?(socket) and is_binary(user_uuid) and notifications_available?() do
+    if connected?(socket) and is_binary(user_uuid) do
       # One line to receive {:notification_created | :notification_seen |
       # :notification_dismissed, notification} and {:notifications_bulk_updated, _}.
       Events.subscribe(user_uuid)
@@ -69,7 +69,7 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
            "How to send, customize, and manage notifications"
          ),
        user_uuid: user_uuid,
-       available: notifications_available?(),
+       available: true,
        unread: 0,
        recent: []
      )
@@ -333,7 +333,7 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   defp refresh(socket) do
     uuid = socket.assigns[:user_uuid]
 
-    if is_binary(uuid) and notifications_available?() do
+    if is_binary(uuid) do
       socket
       |> assign(:unread, PhoenixKit.Notifications.count_unread(uuid))
       |> assign(:recent, load_recent(uuid))
@@ -365,7 +365,7 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
   defp log_demo_activity(socket, action, metadata) do
     uuid = socket.assigns[:user_uuid]
 
-    if is_binary(uuid) and notifications_available?() do
+    if is_binary(uuid) do
       PhoenixKit.Activity.log("hello_world", action,
         actor_uuid: @demo_actor_uuid,
         resource_type: "greeting",
@@ -378,10 +378,6 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
 
   defp with_user(socket, fun) do
     uuid = socket.assigns[:user_uuid]
-    if is_binary(uuid) and notifications_available?(), do: fun.(uuid)
-  end
-
-  defp notifications_available? do
-    Code.ensure_loaded?(PhoenixKit.Notifications) and Code.ensure_loaded?(PhoenixKit.Activity)
+    if is_binary(uuid), do: fun.(uuid)
   end
 end
