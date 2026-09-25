@@ -63,6 +63,8 @@ defmodule PhoenixKitHelloWorld.Web.NotificationsLive do
      socket
      |> assign(
        page_title: Gettext.gettext(PhoenixKitWeb.Gettext, "Notifications"),
+       page_section: Gettext.gettext(PhoenixKitWeb.Gettext, "Hello World"),
+       page_section_path: Paths.index(),
        page_subtitle:
          Gettext.gettext(
            PhoenixKitWeb.Gettext,
