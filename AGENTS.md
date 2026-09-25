@@ -6,7 +6,7 @@ Guidance for AI agents working on `phoenix_kit_hello_world`.
 
 The PhoenixKit plugin-module template and showcase: a working example of the `PhoenixKit.Module` behaviour that a parent Phoenix app auto-discovers, kept deliberately minimal so it can be copied as the starting point for a real module. It ships four admin pages that demonstrate the most common patterns — **Overview** (module info plus a "Log demo event" button showing the canonical activity-logging pattern), **Events** (infinite-scroll activity feed filtered to `module: "hello_world"`), **Notifications** (sending, customizing and managing notifications), and **Components** (live showcase of core components with copy-paste snippets) — plus a reference dashboard widget and a reference project extension.
 
-- **Depends on:** `phoenix_kit` `~> 2.0` (Hex) and `phoenix_live_view` `~> 1.1`. No sibling `phoenix_kit_*` deps. `rustler` is pulled as an optional dep so MDEx's Rust NIF can build from source on OTP versions that ship no compatible precompiled NIF (the same escape hatch core carries).
+- **Depends on:** `phoenix_kit` `>= 2.38.0 and < 3.0.0` (Hex) and `phoenix_live_view` `~> 1.1`. No sibling `phoenix_kit_*` deps. `rustler` is pulled as an optional dep so MDEx's Rust NIF can build from source on OTP versions that ship no compatible precompiled NIF (the same escape hatch core carries).
 - **Consumed by:** nothing. It is the copy-from reference; other modules copy its shapes rather than depend on it.
 - **Admin surface:** parent tab `/admin/hello-world` plus four subtabs — Overview (same path), Events (`/events`), Components (`/components`), Notifications (`/notifications`). All in the `:admin_modules` sidebar group at priorities 640–644.
 - **Module key** `"hello_world"`; settings prefix `hello_world_` (one key today: `hello_world_enabled`).
@@ -63,7 +63,7 @@ Repo-local aliases:
 - **`enabled?/0` must never raise.** It reads a DB-backed setting, so it `rescue`s any exception *and* catches `:exit` (pool checkout can exit around startup or after a test sandbox owner stops), returning `false` from every branch so callers need no startup-ordering special cases.
 - **Activity logging** uses the canonical pattern below — core's never-raising `PhoenixKit.Activity.log/3`, the actor from `PhoenixKitWeb.Actor`. Never put PII in `metadata`; it is a queryable audit trail, so pass uuids and short machine-readable keys.
 - **`css_sources/0` returns the OTP app atom list** (`[:phoenix_kit_hello_world]`) for any module whose templates carry Tailwind classes. Discovery is automatic at compile time: the `:phoenix_kit_css_sources` compiler scans discovered modules and writes `assets/css/_phoenix_kit_sources.css`, which the host's `app.css` imports.
-- **Keep the core pin two-segment** (`~> 2.0`). A three-segment `~> 2.0.x` expands to `< 2.1.0` and makes `mix deps.get` unsolvable for any host running a newer core minor — breakage that lands only on consumers. `test/core_pin_conformance_test.exs` fails the build on a narrowed pin and on a committed `path:` dep.
+- **Keep the core pin in the compound form** (`>= 2.38.0 and < 3.0.0`: patch-precise floor, open ceiling). A three-segment `~> 2.38.0` expands to `< 2.39.0` and makes `mix deps.get` unsolvable for any host running a newer core minor — breakage that lands only on consumers. `test/core_pin_conformance_test.exs` fails the build on a narrowed pin and on a committed `path:` dep.
 - **No soft-delete sentinel** — the module owns no records.
 
 ### Landmines
@@ -180,8 +180,8 @@ Key modules:
 - **`PhoenixKitHelloWorld`** — the behaviour implementation. Required callbacks (`module_key/0`, `module_name/0`, `enabled?/0`, `enable_system/0`, `disable_system/0`) plus `version/0`, `permission_metadata/0`, `admin_tabs/0`, `css_sources/0`, `notification_types/0`, `resolve_comment_resources/1`, and the two duck-typed catalogs below. Registers five tabs: the parent plus four subtabs.
 - **`PhoenixKitHelloWorld.Paths`** — `index/0`, `events/0`, `components/0`, `notifications/0`.
 - **`Web.HelloLive`** — landing page; Scope API demonstration and the activity-logging button.
-- **`Web.EventsLive`** — activity feed using core's `<.load_more infinite>` and `InfiniteScroll` hook (no page-local JS), action filtering via core's `<.select>`, and graceful degradation when `PhoenixKit.Activity` is absent. Near-identical to `phoenix_kit_catalogue`'s events tab; this is the universal pattern.
-- **`Web.NotificationsLive`** — sends plain and custom-display notifications, reads unread counts, marks seen, dismisses, and subscribes to live updates via `PhoenixKit.Notifications.Events.subscribe/1`. Every core call is guarded with `Code.ensure_loaded?/1`.
+- **`Web.EventsLive`** — activity feed using core's `<.load_more infinite>` and `InfiniteScroll` hook (no page-local JS), action filtering via core's `<.select>`. Near-identical to `phoenix_kit_catalogue`'s events tab; this is the universal pattern.
+- **`Web.NotificationsLive`** — sends plain and custom-display notifications, reads unread counts, marks seen, dismisses, and subscribes to live updates via `PhoenixKit.Notifications.Events.subscribe/1`.
 - **`Web.ComponentsLive`** — showcase of core components with copy-paste snippets; `render/1` is a flat dispatch over per-section function components (see Feature notes).
 
 **Data model:** none. No schemas, no tables, no PubSub topics of its own — it only subscribes to core's notification topic.
