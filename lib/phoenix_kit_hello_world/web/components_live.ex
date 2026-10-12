@@ -1245,7 +1245,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <div class="mt-3">
           {render_slot(@inner_block)}
         </div>
-        <details :if={@snippet != []} class="mt-4">
+        <details :if={@snippet != []} class="mt-4" phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}>
           <summary class="text-xs text-base-content/60 cursor-pointer">Show snippet</summary>
           <div class="bg-base-200 p-3 rounded mt-2 text-xs flex flex-col gap-1 font-mono overflow-x-auto">
             {render_slot(@snippet)}
