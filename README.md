@@ -1008,11 +1008,12 @@ Priority controls the sort order in the sidebar (lower number = higher position)
 | 100-199 | Core admin (Dashboard) |
 | 200-299 | Users section |
 | 300-399 | Media section |
-| 400-599 | Reserved for future core sections |
-| **600-899** | **Module tabs — use this range** |
+| 400-499 | Reserved for future core sections |
+| 500-639 | First-party modules |
+| **640-899** | **Your module's tabs — use this range** |
 | 900-999 | System section (Settings, Modules) |
 
-Pick a priority in the **600-899** range for your module. Avoid exact conflicts with other modules by spacing them out (e.g., 650, 700, 750).
+Pick a priority in the **640-899** range for your module. Avoid exact conflicts with other modules by spacing them out (e.g., 650, 700, 750).
 
 ### Sidebar groups
 
@@ -1327,37 +1328,41 @@ import MyPhoenixKitModule.Web.Components.EditorPanel
 
 ### Multi-step modal component
 
-For complex workflows, extract modal components:
+For complex workflows, extract modal components. Build them on core's
+`<.modal>`, never on a raw `<div class="modal modal-open">`: core's modal is a
+native dialog in the top layer, so it traps focus, closes on Esc, and guards
+unsaved input. A hand-rolled `modal-open` div has none of that.
 
 ```elixir
 # lib/my_phoenix_kit_module/web/components/create_modal.ex
 defmodule MyPhoenixKitModule.Web.Components.CreateModal do
   use Phoenix.Component
 
+  import PhoenixKitWeb.Components.Core.Modal, only: [modal: 1]
+
   attr :open, :boolean, required: true
   attr :step, :string, default: "choose"
-  attr :templates, :list, default: []
-  attr :creating, :boolean, default: false
+  attr :on_close, :string, default: "modal_close"
 
-  def modal(assigns) do
+  def create_modal(assigns) do
     ~H"""
-    <div :if={@open} class="modal modal-open">
-      <div class="modal-box max-w-lg">
-        <%= case @step do %>
-          <% "choose" -> %>
-            <h3 class="text-lg font-bold">Choose Type</h3>
-            <%!-- Step 1 content --%>
-          <% "configure" -> %>
-            <h3 class="text-lg font-bold">Configure</h3>
-            <%!-- Step 2 content --%>
-        <% end %>
-      </div>
-      <div class="modal-backdrop" phx-click="modal_close"></div>
-    </div>
+    <.modal id="create-modal" show={@open} on_close={@on_close} max_width="lg">
+      <%= case @step do %>
+        <% "choose" -> %>
+          <h3 class="text-lg font-bold">Choose Type</h3>
+          <%!-- Step 1 content --%>
+        <% "configure" -> %>
+          <h3 class="text-lg font-bold">Configure</h3>
+          <%!-- Step 2 content --%>
+      <% end %>
+    </.modal>
     """
   end
 end
 ```
+
+The Components page shows the same modal live, with a form inside it and the
+drawer placement.
 
 ### Component design guidelines
 
@@ -1456,9 +1461,16 @@ is a code-versus-catalogue question, not an empty-`msgstr` count:
 in `default.pot` in every shipped locale.
 
 An embedded LiveView (a nested `live_render`) is its own process and starts in
-the default locale; set it on mount from the session
-(`Gettext.put_locale(MyPhoenixKitModule.Gettext, locale)`), as
-`project_hello_tab_live.ex` does.
+the default locale; set it on mount from the session, for **both** backends —
+your own and core's — as `project_hello_tab_live.ex` does:
+
+```elixir
+Gettext.put_locale(MyPhoenixKitModule.Gettext, locale)
+Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
+```
+
+Setting only your own leaves every core component inside the embed in the
+default language.
 
 ## JavaScript in modules
 
