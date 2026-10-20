@@ -18,7 +18,7 @@ defmodule PhoenixKitHelloWorld.CorePinConformanceTest do
   The floor is `>= 2.63.0 and < 3.0.0` now, set by the rule in AGENTS.md that
   `mix.lock` resolves the floor, so the suite proves the code against it. It
   is the core the lock resolves, not the oldest core that carries everything
-  the Components page calls: that is about 2.48.0 (`save_button`), by the
+  the Components page calls: that is 2.47.0 (`save_button`), by the
   source only — nothing here compiles against it. README's template advice
   is the "oldest core" floor; AGENTS.md and README disagree, and the
   maintainer decides which one this repo follows.

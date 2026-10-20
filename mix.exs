@@ -85,11 +85,12 @@ defmodule PhoenixKitHelloWorld.MixProject do
       # so this is an UndefinedFunctionError at runtime, not a warning.
       # 2.63.0 is the floor now, by the rule in AGENTS.md: `mix.lock` resolves
       # the floor, so the suite proves the page renders against it. What the
-      # Components page actually needs is older — `date_nav` (core 2.45),
-      # `table_default :toolbar_primary` and `bulk_actions_toolbar :primary`
-      # (2.43–2.45) and `save_button` (2.48) are the newest things it calls,
-      # so by the source the oldest core that carries everything is about
-      # 2.48.0 (not compiled against). README asks for that "oldest core"
+      # Components page actually needs is older — `date_nav`,
+      # `table_default :toolbar_primary`, `bulk_actions_toolbar :primary` and
+      # `form_actions submit_disabled` (core 2.43.0) and `save_button`
+      # (2.47.0) are the newest things it calls, so by the source the oldest
+      # core that carries everything is 2.47.0 (not compiled against).
+      # README asks for that "oldest core"
       # floor instead; the maintainer picks between the two rules.
       # The actor and the activity log (`PhoenixKitWeb.Actor`,
       # `PhoenixKit.Activity.log/3`) have been there since 2.38.0.

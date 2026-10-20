@@ -750,11 +750,17 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
   end
 
   describe "under a locale prefix" do
-    test "the page renders the same under /en", %{conn: conn} do
+    test "the page mounts and renders its sections under /en", %{conn: conn} do
       {:ok, view, html} = live(conn, "/en" <> @path)
 
       assert html =~ "PhoenixKit Core Components"
       assert has_element?(view, "section h3.card-title", "Date navigation")
+
+      # All 39 sections, not just the two probed above.
+      sections =
+        html |> String.split(~s|<section class="card bg-base-100 shadow-xl">|) |> length()
+
+      assert sections - 1 == 39
     end
   end
 
@@ -1024,6 +1030,15 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       |> render_change()
 
       assert has_element?(view, ~s|#demo-profile-form button[type="submit"][disabled]|)
+    end
+
+    test "a profile payload whose name is not text changes nothing", %{view: view} do
+      before = render(view)
+
+      render_change(view, "validate_profile", %{"profile" => %{"display_name" => %{"a" => 1}}})
+      render_submit(view, "save_profile", %{"profile" => %{"display_name" => ["x"]}})
+
+      assert render(view) == before
     end
 
     test "typing keeps the value across the change round-trip", %{view: view} do

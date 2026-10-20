@@ -368,11 +368,13 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
 
   # ── Form section ─────────────────────────────────────────────────
 
-  def handle_event("validate_profile", %{"profile" => %{"display_name" => name}}, socket) do
+  def handle_event("validate_profile", %{"profile" => %{"display_name" => name}}, socket)
+      when is_binary(name) do
     {:noreply, assign(socket, :profile_form, profile_form(name))}
   end
 
-  def handle_event("save_profile", %{"profile" => %{"display_name" => name}}, socket) do
+  def handle_event("save_profile", %{"profile" => %{"display_name" => name}}, socket)
+      when is_binary(name) do
     {:noreply, assign(socket, profile_form: profile_form(name), profile_saved: String.trim(name))}
   end
 
@@ -1138,10 +1140,11 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <.status_badge status="active" size={:lg} />
         <.status_badge status="something_else" />
       </div>
-      <%!-- The typed badges of badge.ex take the record itself, not a status
-           string: they read the fields their domain has. --%>
+      <%!-- The typed badges of badge.ex take what their domain has, not a
+           status string: a role map, two user fields, a code map, a category
+           string, an enabled boolean. --%>
       <p class="text-xs text-base-content/60 mt-4 mb-2">
-        {gettext("Typed badges — each takes the record it describes:")}
+        {gettext("Typed badges — each takes the data of its own domain:")}
       </p>
       <div class="flex flex-wrap items-center gap-2" id="demo-typed-badges">
         <.role_badge role={%{name: "Owner", is_system_role: true}} size={:sm} />
@@ -1173,7 +1176,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <code>{~s|<.enabled_badge enabled={endpoint.enabled} />|}</code>
         <p class="text-xs text-base-content/50">
           {gettext(
-            "An unknown status renders as a neutral badge rather than raising. The label is the status string with underscores as spaces. The typed badges read the fields of their record: a role needs name and is_system_role, a referral code needs number_of_uses, max_uses and expiration_date."
+            "An unknown status renders as a neutral badge rather than raising. The label is the status string with underscores as spaces. The typed badges take what their domain has: a role map with name and is_system_role, the two user fields is_active and confirmed_at, a referral-code map with number_of_uses, max_uses and expiration_date, a category string, an enabled boolean."
           )}
         </p>
       </:snippet>
