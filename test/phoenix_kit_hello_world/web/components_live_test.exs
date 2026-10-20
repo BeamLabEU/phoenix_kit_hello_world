@@ -449,6 +449,11 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       refute render(view) =~ "This is an error"
     end
 
+    test "the success alert is one of the buttons", %{view: view} do
+      view |> element("#demo-alert-success") |> render_click()
+      assert render(view) =~ "This is a success"
+    end
+
     test "the info alert has an OK button that closes it", %{view: view} do
       view |> element("#demo-alert-info") |> render_click()
       assert render(view) =~ "This is a notice"
@@ -730,6 +735,29 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
     end
   end
 
+  describe "typed badges" do
+    test "each takes its record and shows its own state", %{view: view} do
+      for text <-
+            ~w(Owner Editor Active Unconfirmed Inactive Expired System Marketing Transactional Disabled) do
+        assert has_element?(view, "#demo-typed-badges .badge", text), "no #{text} badge"
+      end
+
+      assert has_element?(view, "#demo-typed-badges .badge-error", "Owner")
+      assert has_element?(view, "#demo-typed-badges .badge-primary", "Editor")
+      assert has_element?(view, "#demo-typed-badges .badge-warning", "Unconfirmed")
+      assert has_element?(view, "#demo-typed-badges .badge-neutral", "Disabled")
+    end
+  end
+
+  describe "under a locale prefix" do
+    test "the page renders the same under /en", %{conn: conn} do
+      {:ok, view, html} = live(conn, "/en" <> @path)
+
+      assert html =~ "PhoenixKit Core Components"
+      assert has_element?(view, "section h3.card-title", "Date navigation")
+    end
+  end
+
   describe "status dot, hero stat card, charts" do
     test "status_dot renders each variant with its label", %{view: view} do
       for label <- ~w(online offline degraded syncing idle) do
@@ -743,7 +771,8 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
 
     test "hero_stat_card shows the value; navigate turns the card into a link", %{view: view} do
       assert has_element?(view, "#demo-hero-stats", "People")
-      assert texts(view, "#demo-hero-stats .card") |> Enum.any?(&(&1 =~ "5"))
+      # The values come from the five sample people, two of them admins.
+      assert texts(view, "#demo-hero-stats .text-7xl") == ["5", "2"]
       assert has_element?(view, "#demo-hero-stats", "Administrators")
 
       assert has_element?(
@@ -953,10 +982,11 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       assert has_element?(view, "#demo-profile-form .card .card-title", "Profile")
       assert has_element?(view, "#demo-profile-form", "Shown next to everything you post.")
 
+      # An empty name cannot be saved, and the label says why.
       assert has_element?(
                view,
-               ~s|#demo-profile-form button[type="submit"][phx-disable-with]|,
-               "Save profile"
+               ~s|#demo-profile-form button[type="submit"][phx-disable-with][disabled]|,
+               "Enter a name to save"
              )
 
       assert has_element?(
@@ -977,6 +1007,23 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
 
       refute has_element?(view, "#demo-profile-saved")
       refute has_element?(view, ~s|#demo-profile-form input[value=" Grace "]|)
+    end
+
+    test "submit_disabled follows the name: typing enables Save, clearing disables it", %{
+      view: view
+    } do
+      view
+      |> form("#demo-profile-form", %{"profile" => %{"display_name" => "Gr"}})
+      |> render_change()
+
+      assert has_element?(view, ~s|#demo-profile-form button[type="submit"]|, "Save profile")
+      refute has_element?(view, ~s|#demo-profile-form button[type="submit"][disabled]|)
+
+      view
+      |> form("#demo-profile-form", %{"profile" => %{"display_name" => "  "}})
+      |> render_change()
+
+      assert has_element?(view, ~s|#demo-profile-form button[type="submit"][disabled]|)
     end
 
     test "typing keeps the value across the change round-trip", %{view: view} do

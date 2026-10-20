@@ -129,7 +129,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   @row_actions ~w(view archive)
 
   # A small folder tree for `tree_name_cell`: `parent` nil is a root. Children
-  # come after their parent in the list; `tree_rows/2` walks it into the
+  # come after their parent in the list; `tree_rows/3` walks it into the
   # `{node, depth}` rows the table draws.
   @demo_tree [
     %{id: "docs", name: "Documents", parent: nil, folder?: true},
@@ -552,6 +552,8 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
 
   defp known_count(ids),
     do: ids |> Enum.filter(&is_map_key(@people_by_id, &1)) |> Enum.uniq() |> length()
+
+  defp blank_name?(profile_form), do: String.trim(profile_form[:display_name].value || "") == ""
 
   defp measure_form(params), do: to_form(params, as: :measure)
 
@@ -1136,12 +1138,42 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <.status_badge status="active" size={:lg} />
         <.status_badge status="something_else" />
       </div>
+      <%!-- The typed badges of badge.ex take the record itself, not a status
+           string: they read the fields their domain has. --%>
+      <p class="text-xs text-base-content/60 mt-4 mb-2">
+        {gettext("Typed badges — each takes the record it describes:")}
+      </p>
+      <div class="flex flex-wrap items-center gap-2" id="demo-typed-badges">
+        <.role_badge role={%{name: "Owner", is_system_role: true}} size={:sm} />
+        <.role_badge role={%{name: "Editor", is_system_role: false}} size={:sm} />
+        <.user_status_badge is_active={true} confirmed_at={~U[2026-01-01 00:00:00Z]} size={:sm} />
+        <.user_status_badge is_active={true} confirmed_at={nil} size={:sm} />
+        <.user_status_badge is_active={false} size={:sm} />
+        <.code_status_badge
+          code={%{number_of_uses: 1, max_uses: 5, expiration_date: nil}}
+          size={:sm}
+        />
+        <.code_status_badge
+          code={%{number_of_uses: 5, max_uses: 5, expiration_date: nil}}
+          size={:sm}
+        />
+        <.category_badge category="system" />
+        <.category_badge category="marketing" />
+        <.category_badge category="transactional" />
+        <.enabled_badge enabled={true} />
+        <.enabled_badge enabled={false} />
+      </div>
       <:snippet>
         <code>{~s|<.status_badge status={item.status} />|}</code>
         <code>{~s|<.status_badge status="in_progress" size={:xs} />|}</code>
+        <code>{~s|<.role_badge role={user.role} size={:sm} />|}</code>
+        <code>{~s|<.user_status_badge is_active={user.is_active} confirmed_at={user.confirmed_at} />|}</code>
+        <code>{~s|<.code_status_badge code={referral_code} />|}</code>
+        <code>{~s|<.category_badge category="marketing" />|}</code>
+        <code>{~s|<.enabled_badge enabled={endpoint.enabled} />|}</code>
         <p class="text-xs text-base-content/50">
           {gettext(
-            "An unknown status renders as a neutral badge rather than raising. The label is the status string with underscores as spaces."
+            "An unknown status renders as a neutral badge rather than raising. The label is the status string with underscores as spaces. The typed badges read the fields of their record: a role needs name and is_system_role, a referral code needs number_of_uses, max_uses and expiration_date."
           )}
         </p>
       </:snippet>
@@ -1331,6 +1363,12 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   end
 
   defp hero_stat_card_section(assigns) do
+    assigns =
+      assign(assigns,
+        people_count: length(@demo_people),
+        admin_count: Enum.count(@demo_people, &(&1.role == "admin"))
+      )
+
     ~H"""
     <.showcase_section
       title={gettext("Hero stat card")}
@@ -1338,14 +1376,14 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
     >
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="demo-hero-stats">
         <.hero_stat_card
-          value={5}
+          value={@people_count}
           title={gettext("People")}
           subtitle={gettext("In the sample table above")}
         >
           <:icon><.icon name="hero-users" class="w-6 h-6" /></:icon>
         </.hero_stat_card>
         <.hero_stat_card
-          value={2}
+          value={@admin_count}
           title={gettext("Administrators")}
           subtitle={gettext("A link to the report behind the number")}
           navigate={Paths.components()}
@@ -1598,7 +1636,12 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         </.form_section>
         <.form_actions
           cancel_click="reset_profile"
-          submit_label={gettext("Save profile")}
+          submit_label={
+            if blank_name?(@profile_form),
+              do: gettext("Enter a name to save"),
+              else: gettext("Save profile")
+          }
+          submit_disabled={blank_name?(@profile_form)}
           submit_icon="hero-check"
         />
       </.form>
@@ -1611,11 +1654,12 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <code>{~s|    <:subtitle>Shown next to everything you post.</:subtitle>|}</code>
         <code>{~s|    <.input field={@form[:display_name]} label="Display name" />|}</code>
         <code>{~s|  </.form_section>|}</code>
-        <code>{~s|  <.form_actions cancel_to={Paths.index()} submit_label="Save" submit_icon="hero-check" />|}</code>
+        <code>{~s|  <.form_actions cancel_to={Paths.index()} submit_label={if @valid?, do: "Save", else: "Enter a name to save"}|}</code>
+        <code>{~s|    submit_disabled={not @valid?} submit_icon="hero-check" />|}</code>
         <code>{~s|</.form>|}</code>
         <p class="text-xs text-base-content/50">
           {gettext(
-            "Cancel is a link with cancel_to, an event with cancel_click (add cancel_target inside a LiveComponent), or your own markup in the cancel slot — one of the three."
+            "Cancel is a link with cancel_to, an event with cancel_click (add cancel_target inside a LiveComponent), or your own markup in the cancel slot — one of the three. submit_disabled greys the submit button; say why in submit_label, as the empty name does here."
           )}
         </p>
       </:snippet>
@@ -1734,7 +1778,12 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
           {gettext("Open confirm (counter: %{count})", count: @counter)}
         </button>
         <button
-          :for={{type, label} <- [info: gettext("Info alert"), warning: gettext("Warning alert"), error: gettext("Error alert")]}
+          :for={{type, label} <- [
+                info: gettext("Info alert"),
+                success: gettext("Success alert"),
+                warning: gettext("Warning alert"),
+                error: gettext("Error alert")
+              ]}
           type="button"
           id={"demo-alert-#{type}"}
           phx-click="open_alert"
@@ -1827,6 +1876,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
   defp alert_message(:warning),
     do: gettext("This is a warning: the action is allowed, but check it first.")
 
+  defp alert_message(:success), do: gettext("This is a success: the action went through.")
   defp alert_message(:error), do: gettext("This is an error: the action did not go through.")
   defp alert_message(_info_or_nil), do: gettext("This is a notice. Press OK to acknowledge it.")
 

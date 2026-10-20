@@ -83,12 +83,16 @@ defmodule PhoenixKitHelloWorld.MixProject do
       # 1.7.214+ required: Scope.can_access_admin_area?/1 (the rename of the
       # now-`@deprecated` Scope.admin?/1) — an older core has no such function,
       # so this is an UndefinedFunctionError at runtime, not a warning.
-      # 2.63.0 is the floor now: the Components page renders `date_nav`,
-      # `line_chart`/`bar_chart`/`sparkline`, `status_dot`, `column_settings_modal`
-      # and the rest of the newer components, and the lock resolves this
-      # floor, so the suite proves the page renders against it. (The actor
-      # and the activity log — `PhoenixKitWeb.Actor`, `PhoenixKit.Activity.log/3`
-      # — have been there since 2.38.0 and are not feature-detected.)
+      # 2.63.0 is the floor now, by the rule in AGENTS.md: `mix.lock` resolves
+      # the floor, so the suite proves the page renders against it. What the
+      # Components page actually needs is older — `date_nav` (core 2.45),
+      # `table_default :toolbar_primary` and `bulk_actions_toolbar :primary`
+      # (2.43–2.45) and `save_button` (2.48) are the newest things it calls,
+      # so by the source the oldest core that carries everything is about
+      # 2.48.0 (not compiled against). README asks for that "oldest core"
+      # floor instead; the maintainer picks between the two rules.
+      # The actor and the activity log (`PhoenixKitWeb.Actor`,
+      # `PhoenixKit.Activity.log/3`) have been there since 2.38.0.
       # Patch-precise floor in the compound form, so the ceiling stays open
       # through every later 2.x minor (see test/core_pin_conformance_test.exs).
       pk_dep(:phoenix_kit, ">= 2.63.0 and < 3.0.0"),

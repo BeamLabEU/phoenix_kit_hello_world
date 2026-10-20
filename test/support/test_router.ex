@@ -23,16 +23,24 @@ defmodule PhoenixKitHelloWorld.Test.Router do
     plug(:protect_from_forgery)
   end
 
-  scope "/admin/hello-world", PhoenixKitHelloWorld.Web do
-    pipe_through(:browser)
+  # The prefixless base is where `Paths.*` land on a single-language site. The
+  # `/en` base is the same pages as a multilingual host serves them; it is a
+  # separate live_session, so a patch does not cross between the two.
+  for {base, session} <- [
+        {"/admin/hello-world", :hello_world_test},
+        {"/en/admin/hello-world", :hello_world_test_locale}
+      ] do
+    scope base, PhoenixKitHelloWorld.Web do
+      pipe_through(:browser)
 
-    live_session :hello_world_test,
-      layout: {PhoenixKitHelloWorld.Test.Layouts, :app},
-      on_mount: {PhoenixKitHelloWorld.Test.Hooks, :assign_scope} do
-      live("/", HelloLive, :index)
-      live("/events", EventsLive, :index)
-      live("/components", ComponentsLive, :index)
-      live("/notifications", NotificationsLive, :index)
+      live_session session,
+        layout: {PhoenixKitHelloWorld.Test.Layouts, :app},
+        on_mount: {PhoenixKitHelloWorld.Test.Hooks, :assign_scope} do
+        live("/", HelloLive, :index)
+        live("/events", EventsLive, :index)
+        live("/components", ComponentsLive, :index)
+        live("/notifications", NotificationsLive, :index)
+      end
     end
   end
 end
