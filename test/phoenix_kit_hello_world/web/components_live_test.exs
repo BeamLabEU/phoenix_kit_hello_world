@@ -9,7 +9,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
   """
   use PhoenixKitHelloWorld.LiveCase
 
-  @path "/en/admin/hello-world/components"
+  @path "/admin/hello-world/components"
 
   setup %{conn: conn} do
     {:ok, view, html} = live(conn, @path)
@@ -294,7 +294,11 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       assert has_element?(view, "#demo-core-buttons button.btn.btn-ghost", "Ghost")
       refute has_element?(view, "#demo-core-buttons button.btn-ghost.btn-primary")
       assert has_element?(view, "#demo-core-buttons button.btn[disabled]", "Disabled")
-      assert has_element?(view, ~s|a#demo-button-link.btn.btn-outline.btn-sm[href="#{@path}"]|)
+
+      assert has_element?(
+               view,
+               ~s|a#demo-button-link.btn.btn-outline.btn-sm[href="#{PhoenixKitHelloWorld.Paths.components()}"]|
+             )
     end
 
     test "status picks the colour and humanises the label", %{view: view} do
