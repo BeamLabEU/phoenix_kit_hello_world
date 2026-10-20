@@ -5,8 +5,10 @@ defmodule PhoenixKitHelloWorld.Test.Router do
   work with exactly the same URLs the LiveViews push themselves to.
 
   `PhoenixKit.Utils.Routes.path/1` defaults to no URL prefix when the
-  `phoenix_kit_settings` table is unavailable, and since core 2.63 the
-  primary locale ("en") is prefixless — so our base is `/admin/hello-world`.
+  `phoenix_kit_settings` table is unavailable. Since core 2.62 it also emits
+  no locale segment on a single-language site, which the test database is, so
+  our base is `/admin/hello-world`. (A multilingual host that serves its
+  primary language with a prefix still gets `/en/admin/...`.)
   """
 
   use Phoenix.Router

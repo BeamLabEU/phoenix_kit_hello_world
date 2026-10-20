@@ -449,6 +449,15 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       refute render(view) =~ "This is an error"
     end
 
+    test "the info alert has an OK button that closes it", %{view: view} do
+      view |> element("#demo-alert-info") |> render_click()
+      assert render(view) =~ "This is a notice"
+      assert has_element?(view, "dialog button", "OK")
+
+      view |> element(~s|dialog button[phx-click="close_alert"]|, "OK") |> render_click()
+      refute render(view) =~ "This is a notice"
+    end
+
     test "an alert type outside the list opens nothing", %{view: view} do
       render_click(view, "open_alert", %{"type" => "fatal"})
       render_click(view, "open_alert", %{})
@@ -506,8 +515,10 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
                )
       end
 
-      assert has_element?(view, "#demo-linked-alice.relative.transform-gpu")
-      assert has_element?(view, "#demo-linked-alice td.relative.z-10")
+      for id <- ~w(alice bob carol dave erin) do
+        assert has_element?(view, "#demo-linked-#{id}.relative.transform-gpu")
+        assert has_element?(view, "#demo-linked-#{id} td.relative.z-10")
+      end
     end
   end
 
@@ -654,6 +665,28 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       assert has_element?(view, "#demo-measure-parsed", "Quantity: empty")
     end
 
+    test "a payload that is not the form's two text fields changes nothing", %{view: view} do
+      before = render(view)
+
+      render_change(view, "validate_measure", %{
+        "measure" => %{"qty" => %{"a" => "1"}, "weight" => "1"}
+      })
+
+      render_change(view, "validate_measure", %{"measure" => "x"})
+      render_change(view, "validate_measure", %{"measure" => %{"qty" => ["1"], "weight" => "1"}})
+      render_submit(view, "save_measure", %{"measure" => %{"qty" => "1"}})
+
+      assert render(view) == before
+    end
+
+    test "text the server refused is not reported as saved", %{view: view} do
+      view |> form("#demo-measure-form", measure: %{qty: "abc"}) |> render_change()
+      view |> form("#demo-measure-form") |> render_submit()
+
+      refute has_element?(view, "#demo-measure-form", "Saved")
+      refute has_element?(view, "#demo-measure-form button[type=submit][disabled]")
+    end
+
     test "save_button is idle, then live once something changed, then confirms", %{view: view} do
       assert has_element?(view, "#demo-measure-form button[type=submit][disabled]")
 
@@ -702,10 +735,16 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLiveTest do
       for label <- ~w(online offline degraded syncing idle) do
         assert has_element?(view, "#demo-status-dots", label)
       end
+
+      # Each variant is a different colour, not the same dot under five labels.
+      html = view |> element("#demo-status-dots") |> render()
+      for color <- ~w(success error warning info), do: assert(html =~ color)
     end
 
     test "hero_stat_card shows the value; navigate turns the card into a link", %{view: view} do
       assert has_element?(view, "#demo-hero-stats", "People")
+      assert texts(view, "#demo-hero-stats .card") |> Enum.any?(&(&1 =~ "5"))
+      assert has_element?(view, "#demo-hero-stats", "Administrators")
 
       assert has_element?(
                view,

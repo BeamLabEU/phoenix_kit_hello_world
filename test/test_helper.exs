@@ -97,9 +97,9 @@ Application.put_env(:phoenix_kit_hello_world, :test_repo_available, repo_availab
 exclude = if repo_available, do: [], else: [:integration]
 
 # Force PhoenixKit's URL prefix cache to an empty string for tests so
-# `Paths.index()` etc. produce paths the test router can match. The primary
-# locale ("en") is prefixless since core 2.63, so our router scope is
-# `/admin/hello-world`.
+# `Paths.index()` etc. produce paths the test router can match. The test
+# database is single-language, and core emits no locale segment there since
+# 2.62, so our router scope is `/admin/hello-world`.
 :persistent_term.put({PhoenixKit.Config, :url_prefix}, "/")
 
 # Start the test Endpoint so Phoenix.LiveViewTest can drive our

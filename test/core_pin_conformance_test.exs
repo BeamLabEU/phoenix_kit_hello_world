@@ -15,11 +15,11 @@ defmodule PhoenixKitHelloWorld.CorePinConformanceTest do
   Core 1.7 is deliberately excluded: core 2.0.0 squashed the migration chain to
   a V135 floor and this module is verified only against that baseline.
 
-  The floor is `>= 2.63.0 and < 3.0.0` now: the Components page renders
-  components that core shipped between 2.38 and 2.63 (`date_nav`, the SVG
-  charts, `status_dot`, `column_settings_modal`, …) with attributes an older
-  core does not declare, so an older core crashes it at render — and the
-  lock resolves exactly this floor, which is what lets the suite prove it.
+  The floor is `>= 2.63.0 and < 3.0.0` now. The Components page uses
+  components core shipped after 2.38 (`date_nav`, the SVG charts, `status_dot`,
+  `column_settings_modal`, …), which an older core does not have. The floor
+  is the core the lock resolves — the one the suite proves the page against —
+  not the earliest core that happens to carry each component.
   Any earlier floor's reasons above still hold below it. Keep the
   compound form: patch-precise at the bottom, open through every later 2.x
   minor at the top.

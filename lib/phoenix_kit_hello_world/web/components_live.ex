@@ -141,9 +141,9 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
     %{id: "notes", name: "notes.txt", parent: nil, folder?: false}
   ]
 
-  # The nodes that have children — the only ones a toggle may name.
   @chart_values [12, 18, 15, 24, 21, 30, 27]
 
+  # The nodes that have children — the only ones a toggle may name.
   @expandable_ids @demo_tree |> Enum.map(& &1.parent) |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
   @impl true
@@ -481,7 +481,16 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
 
   # ── Form extras ──────────────────────────────────────────────────
 
-  def handle_event("validate_measure", %{"measure" => params}, socket) when is_map(params) do
+  # The form's own two fields, as text: a map or a list in their place is a
+  # crafted push and falls through to the catch-all.
+  def handle_event(
+        "validate_measure",
+        %{"measure" => %{"qty" => qty, "weight" => weight}},
+        socket
+      )
+      when is_binary(qty) and is_binary(weight) do
+    params = %{"qty" => qty, "weight" => weight}
+
     {:noreply,
      assign(socket,
        measure_form: measure_form(params),
@@ -491,13 +500,19 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
      )}
   end
 
-  def handle_event("save_measure", %{"measure" => params}, socket) when is_map(params) do
+  # Saving needs numbers the server could read: text it refused stays unsaved.
+  def handle_event("save_measure", %{"measure" => %{"qty" => qty, "weight" => weight}}, socket)
+      when is_binary(qty) and is_binary(weight) do
+    params = %{"qty" => qty, "weight" => weight}
+    measure = measure_parse(params)
+    valid? = match?({:ok, _}, measure.qty) and match?({:ok, _}, measure.weight)
+
     {:noreply,
      assign(socket,
        measure_form: measure_form(params),
-       measure: measure_parse(params),
-       measure_dirty: false,
-       measure_saved: true
+       measure: measure,
+       measure_dirty: not valid?,
+       measure_saved: valid?
      )}
   end
 
@@ -2038,7 +2053,7 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
                   expanded={MapSet.member?(@expanded, node.id)}
                   toggle_event="toggle_node"
                   value={node.id}
-                  toggle_label={gettext("Expand or collapse")}
+                  toggle_label={gettext("Expand or collapse %{name}", name: node.name)}
                   icon={if node.folder?, do: "hero-folder", else: "hero-document-text"}
                   icon_class={node.folder? && "w-4 h-4 text-warning shrink-0"}
                 >
@@ -2131,8 +2146,6 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <.bulk_actions_toolbar
           on_open_reorder="open_reorder"
           on_bulk_delete="bulk_delete"
-          noun_singular={gettext("person")}
-          noun_plural={gettext("people")}
           reorder_gate={:multi}
         >
           <:leading>
@@ -2486,7 +2499,9 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
         <code>{~s|<.page_size_selector value={@per_page} on_change="change_per_page" />|}</code>
         <code>{~s|<.load_more id="items" loaded={@loaded} total={@total} infinite />|}</code>
         <p class="text-xs text-base-content/50">
-          {gettext("pagination renders patch links, so the page needs a handle_params callback.")}
+          {gettext(
+            "pagination renders patch links, so the page needs a handle_params callback. A real list keeps the page size in the URL and resets to page 1 when it changes (core's UrlState does both); this demo holds it in assigns."
+          )}
         </p>
       </:snippet>
     </.showcase_section>
@@ -2714,9 +2729,9 @@ defmodule PhoenixKitHelloWorld.Web.ComponentsLive do
       </p>
       <:snippet>
         <code>{~s|import PhoenixKitWeb.Components.Core.DateNav, only: [date_nav: 1]|}</code>
-        <code>{~s|<.date_nav date={@date} today={@today} max={@today} path={&"/admin/day?date=\#{&1}"} />|}</code>
+        <code>{~s|<.date_nav date={@date} today={@today} max={@today} path={&"\#{Paths.items()}?date=\#{&1}"} />|}</code>
         <code>{~s|def handle_params(params, _uri, socket) do|}</code>
-        <code>{~s|  {:noreply, assign(socket, :date, DateNav.parse_param(params["date"], today: @today, max: @today))}|}</code>
+        <code>{~s|  {:noreply, assign(socket, :date, DateNav.parse_param(params["date"], today: socket.assigns.today, max: socket.assigns.today))}|}</code>
         <code>{~s|end|}</code>
         <code>{~s|def handle_event("date_nav_pick", %{"date" => value}, socket)  # the native picker: answer with a patch|}</code>
         <p class="text-xs text-base-content/50">
