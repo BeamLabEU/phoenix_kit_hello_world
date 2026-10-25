@@ -2234,6 +2234,13 @@ never into a core release. Core's
 `dev_docs/plans/2026-10-25-module-table-ownership.md` tracks moving every
 module there.
 
+**Prove your chain builds its tables without core**: on a host core's chain
+runs first, so your adoption DDL never runs and nothing shows whether it is
+complete. `PhoenixKit.TestSupport.ModuleChainCheck.check(MyModule.Test.Repo,
+MyModule.Migrations)` from an `async: false` `ExUnit.Case` test builds them
+both ways in a scratch schema and lists every difference (core's
+`dev_docs/guides/2026-09-05-module-table-extraction-guide.md`).
+
 - **Phase 0 — V1 adopts, changes nothing.** `CREATE TABLE IF NOT EXISTS`
   shape-identical to core's baseline with core's exact object names, then a
   **namespaced** marker stamp (`pkl_schema:1` — an adopted table may carry a
