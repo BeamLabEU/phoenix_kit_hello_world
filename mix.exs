@@ -96,7 +96,7 @@ defmodule PhoenixKitHelloWorld.MixProject do
       # `PhoenixKit.Activity.log/3`) have been there since 2.38.0.
       # Patch-precise floor in the compound form, so the ceiling stays open
       # through every later 2.x minor (see test/core_pin_conformance_test.exs).
-      pk_dep(:phoenix_kit, ">= 2.63.0 and < 3.0.0"),
+      pk_dep(:phoenix_kit, ">= 2.63.0 and < 4.0.0"),
       # Build MDEx's Rust NIF from source on OTP versions it ships no
       # compatible precompiled NIF for — same escape hatch core's mix.exs
       # carries: MDEx's force_build requires rustler itself, not just
