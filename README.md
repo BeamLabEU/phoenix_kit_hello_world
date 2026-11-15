@@ -137,9 +137,9 @@ end
 defp deps do
   [
     # Compound form: a patch-precise floor and an open ceiling. A
-    # three-segment `~> 2.38.0` means `< 2.39.0` and makes `mix deps.get`
+    # three-segment `~> 3.5.0` means `< 3.6.0` and makes `mix deps.get`
     # unsolvable for any host on a newer core minor.
-    {:phoenix_kit, ">= 2.38.0 and < 3.0.0"},
+    {:phoenix_kit, ">= 3.5.0 and < 4.0.0"},
     {:phoenix_live_view, "~> 1.1"},
     {:gettext, "~> 1.0"}
   ]
@@ -147,7 +147,7 @@ end
 ```
 
 Set the `phoenix_kit` floor to the oldest core release that has everything your
-module calls, and raise it in the same change that starts using something
+module calls — never below 3.5.0, the ecosystem-wide minimum — and raise it in the same change that starts using something
 newer — a function, a component, or a single component attribute. A host on an
 older core otherwise fails at compile time or, worse, at render.
 
@@ -496,8 +496,8 @@ For versions that actually run, read `phoenix_kit_boards` (single table) or
 | `media_reorganizer/0` | No | `nil` | Storage reorganizer source for the module's records |
 
 That is every callback in core 2.38. Later core releases add
-`email_templates/0` (2.44) and `job_kinds/0` (2.48); raise your `phoenix_kit`
-floor before implementing either with `@impl`. The authoritative list is
+`email_templates/0` (2.44) and `job_kinds/0` (2.48), both below the 3.5.0
+floor. The authoritative list is
 `PhoenixKit.Module` in the core version you depend on.
 
 Two further integrations are not callbacks at all but duck-typed functions
@@ -1690,7 +1690,7 @@ If your module won't work without another module, add it to `mix.exs`. Mix enfor
 # mix.exs
 defp deps do
   [
-    {:phoenix_kit, ">= 2.38.0 and < 3.0.0"},
+    {:phoenix_kit, ">= 3.5.0 and < 4.0.0"},
     {:phoenix_kit_billing, "~> 0.21"}  # hard requirement
   ]
 end
@@ -2894,7 +2894,7 @@ end
 2. Make sure the phoenix_kit dep is the Hex requirement, in the compound form, and not a `path:`:
 
 ```elixir
-{:phoenix_kit, ">= 2.38.0 and < 3.0.0"}  # not path: "../phoenix_kit"
+{:phoenix_kit, ">= 3.5.0 and < 4.0.0"}  # not path: "../phoenix_kit"
 ```
 
 This template never writes a `path:` tuple at all: `pk_dep/3` in its `mix.exs`
@@ -2930,7 +2930,7 @@ No config needed — auto-discovery handles the rest.
 9. **Paths** must go through `Routes.path/1` — never use relative paths in templates
 10. **JS hooks** come from core, or ship as a prebuilt bundle declared by `js_sources/0` with namespaced hook names — never from an inline `<script>`
 11. **User-facing strings** go through your own Gettext backend in the macro form, and every shipped locale's `.po` is filled in the same change
-12. **The `phoenix_kit` pin** is the compound form (`>= x.y.z and < 3.0.0`), with the floor at the oldest core that has everything you call
+12. **The `phoenix_kit` pin** is the compound form (`>= x.y.z and < 4.0.0`), with the floor at the oldest core that has everything you call (3.5.0 at the lowest)
 
 ## License
 
