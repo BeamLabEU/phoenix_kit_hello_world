@@ -23,17 +23,17 @@ msgstr[1] ""
 msgid "%{count} unread"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:244
+#: lib/phoenix_kit_hello_world/web/events_live.ex:245
 #, elixir-autogen, elixir-format
 msgid "%{count}d ago"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:241
+#: lib/phoenix_kit_hello_world/web/events_live.ex:242
 #, elixir-autogen, elixir-format
 msgid "%{count}h ago"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:238
+#: lib/phoenix_kit_hello_world/web/events_live.ex:239
 #, elixir-autogen, elixir-format
 msgid "%{count}m ago"
 msgstr ""
@@ -68,7 +68,7 @@ msgstr ""
 msgid "A reorderable list. Dropping an item sends an event with the new order."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:321
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:423
 #, elixir-autogen, elixir-format
 msgid "A second button, \"Log moderation event\", appears for roles granted the \"Moderate\" sub-permission while the module is enabled."
 msgstr ""
@@ -94,7 +94,7 @@ msgstr ""
 msgid "Accept a reorder only when the ids are exactly a permutation of the ones you rendered. The drag behaviour comes from a core hook."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:269
+#: lib/phoenix_kit_hello_world/web/events_live.ex:270
 #, elixir-autogen, elixir-format
 msgid "Action"
 msgstr ""
@@ -120,12 +120,12 @@ msgstr ""
 msgid "Activity"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:267
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:369
 #, elixir-autogen, elixir-format
 msgid "Activity Logging Demo"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:256
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:358
 #, elixir-autogen, elixir-format
 msgid "Activity logging"
 msgstr ""
@@ -135,12 +135,12 @@ msgstr ""
 msgid "Admin"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:248
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:350
 #, elixir-autogen, elixir-format
 msgid "Admin layout"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:387
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:532
 #, elixir-autogen, elixir-format
 msgid "Admin?"
 msgstr ""
@@ -155,7 +155,7 @@ msgstr ""
 msgid "Alerts"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:272
+#: lib/phoenix_kit_hello_world/web/events_live.ex:273
 #, elixir-autogen, elixir-format
 msgid "All Actions"
 msgstr ""
@@ -194,7 +194,7 @@ msgstr ""
 msgid "Are you sure you want to increment the counter?"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:236
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:338
 #, elixir-autogen, elixir-format
 msgid "Auto-discovery"
 msgstr ""
@@ -209,7 +209,7 @@ msgstr ""
 msgid "Bio"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:468
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:613
 #, elixir-autogen, elixir-format
 msgid "Browse %{link} to see what's available"
 msgstr ""
@@ -234,7 +234,7 @@ msgstr ""
 msgid "Buttons — one visible button per language:"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:394
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:539
 #, elixir-autogen, elixir-format
 msgid "Can moderate?"
 msgstr ""
@@ -260,12 +260,12 @@ msgid "Choose one"
 msgstr ""
 
 #: lib/phoenix_kit_hello_world/web/components_live.ex:2342
-#: lib/phoenix_kit_hello_world/web/events_live.ex:278
+#: lib/phoenix_kit_hello_world/web/events_live.ex:279
 #, elixir-autogen, elixir-format
 msgid "Clear"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:271
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:373
 #, elixir-autogen, elixir-format
 msgid "Click a button below to log an activity event, then visit the %{link} to see it appear in the feed."
 msgstr ""
@@ -282,7 +282,7 @@ msgstr ""
 
 #: lib/phoenix_kit_hello_world.ex:375
 #: lib/phoenix_kit_hello_world/web/components_live.ex:154
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:469
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:614
 #, elixir-autogen, elixir-format
 msgid "Components"
 msgstr ""
@@ -292,7 +292,7 @@ msgstr ""
 msgid "Components not shown here"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:419
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:564
 #, elixir-autogen, elixir-format
 msgid "Components showcase"
 msgstr ""
@@ -353,7 +353,7 @@ msgstr ""
 msgid "Create your first item to see it appear here."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:366
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:511
 #, elixir-autogen, elixir-format
 msgid "Current User"
 msgstr ""
@@ -414,13 +414,13 @@ msgstr ""
 msgid "Dropdown — compact, for headers and navbars:"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:438
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:583
 #, elixir-autogen, elixir-format
 msgid "Edit %{file} — this file"
 msgstr ""
 
 #: lib/phoenix_kit_hello_world/web/components_live.ex:1590
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:374
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:519
 #, elixir-autogen, elixir-format
 msgid "Email"
 msgstr ""
@@ -435,7 +435,7 @@ msgstr ""
 msgid "Empty states"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:349
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:494
 #, elixir-autogen, elixir-format
 msgid "Enabled"
 msgstr ""
@@ -446,38 +446,39 @@ msgstr ""
 msgid "Error"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:150
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:196
 #, elixir-autogen, elixir-format
 msgid "Event logged — check the Events tab!"
 msgstr ""
 
 #: lib/phoenix_kit_hello_world.ex:374
-#: lib/phoenix_kit_hello_world/web/events_live.ex:60
+#: lib/phoenix_kit_hello_world/web/events_live.ex:61
 #, elixir-autogen, elixir-format
 msgid "Events"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:414
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:559
 #, elixir-autogen, elixir-format
 msgid "Events feed"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:64
+#: lib/phoenix_kit_hello_world/web/events_live.ex:65
 #, elixir-autogen, elixir-format
 msgid "Events logged by the Hello World module. Click the \"Log demo event\" button on the Overview page to add entries."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:276
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:378
 #, elixir-autogen, elixir-format
 msgid "Events tab"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:409
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:554
 #, elixir-autogen, elixir-format
 msgid "Explore the showcase"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:156
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:202
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:252
 #, elixir-autogen, elixir-format
 msgid "Failed to log event. Check the server logs."
 msgstr ""
@@ -547,7 +548,7 @@ msgstr ""
 msgid "Guest"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:355
+#: lib/phoenix_kit_hello_world/web/events_live.ex:356
 #, elixir-autogen, elixir-format
 msgid "Head back to the Overview page and click \"Log demo event\"."
 msgstr ""
@@ -564,14 +565,14 @@ msgstr ""
 
 #: lib/phoenix_kit_hello_world.ex:372
 #: lib/phoenix_kit_hello_world/web/components_live.ex:155
-#: lib/phoenix_kit_hello_world/web/events_live.ex:61
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:76
+#: lib/phoenix_kit_hello_world/web/events_live.ex:62
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:100
 #: lib/phoenix_kit_hello_world/web/notifications_live.ex:69
 #, elixir-autogen, elixir-format
 msgid "Hello World"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:226
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:328
 #, elixir-autogen, elixir-format
 msgid "Hello World Plugin"
 msgstr ""
@@ -656,7 +657,7 @@ msgstr ""
 msgid "Items you create will show up in this list."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:345
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:490
 #, elixir-autogen, elixir-format
 msgid "Key"
 msgstr ""
@@ -671,7 +672,7 @@ msgstr ""
 msgid "Last 5 minutes"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:313
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:415
 #, elixir-autogen, elixir-format
 msgid "Last logged at %{time}"
 msgstr ""
@@ -701,23 +702,23 @@ msgstr ""
 msgid "Locale pickers in three variants. Languages is part of core: each variant lists the languages enabled under Settings → Languages."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:457
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:602
 #, elixir-autogen, elixir-format
 msgid "Log all mutations via %{function} — see the demo button above"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:290
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:392
 #, elixir-autogen, elixir-format
 msgid "Log demo event"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:302
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:404
 #, elixir-autogen, elixir-format
 msgid "Log moderation event"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:286
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:298
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:388
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:400
 #, elixir-autogen, elixir-format
 msgid "Logging…"
 msgstr ""
@@ -747,17 +748,17 @@ msgstr ""
 msgid "Modification time:"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:343
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:488
 #, elixir-autogen, elixir-format
 msgid "Module"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:340
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:485
 #, elixir-autogen, elixir-format
 msgid "Module Info"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:390
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:535
 #, elixir-autogen, elixir-format
 msgid "Module access?"
 msgstr ""
@@ -785,7 +786,7 @@ msgstr ""
 msgid "Nav tabs"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:429
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:574
 #, elixir-autogen, elixir-format
 msgid "Next Steps"
 msgstr ""
@@ -795,12 +796,12 @@ msgstr ""
 msgid "Nice — you did the thing."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:360
+#: lib/phoenix_kit_hello_world/web/events_live.ex:361
 #, elixir-autogen, elixir-format
 msgid "No events match this filter."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:354
+#: lib/phoenix_kit_hello_world/web/events_live.ex:355
 #, elixir-autogen, elixir-format
 msgid "No events recorded yet"
 msgstr ""
@@ -951,7 +952,7 @@ msgstr ""
 msgid "Pending issues"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:244
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:346
 #, elixir-autogen, elixir-format
 msgid "Permissions"
 msgstr ""
@@ -1074,12 +1075,12 @@ msgstr ""
 msgid "Role"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:376
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:521
 #, elixir-autogen, elixir-format
 msgid "Roles"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:240
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:342
 #, elixir-autogen, elixir-format
 msgid "Routing"
 msgstr ""
@@ -1106,6 +1107,7 @@ msgid "Saved note: %{note}"
 msgstr ""
 
 #: lib/phoenix_kit_hello_world/web/components_live.ex:1834
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:462
 #, elixir-autogen, elixir-format
 msgid "Saving…"
 msgstr ""
@@ -1132,7 +1134,7 @@ msgstr ""
 msgid "Secondary"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:476
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:621
 #, elixir-autogen, elixir-format
 msgid "See %{file} for the full guide"
 msgstr ""
@@ -1209,7 +1211,8 @@ msgstr ""
 msgid "Show snippet"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:328
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:430
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:473
 #, elixir-autogen, elixir-format
 msgid "Show the code pattern"
 msgstr ""
@@ -1219,7 +1222,7 @@ msgstr ""
 msgid "Shown next to everything you post."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:252
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:354
 #, elixir-autogen, elixir-format
 msgid "Sidebar tab"
 msgstr ""
@@ -1269,7 +1272,7 @@ msgstr ""
 msgid "Summary cards showing a metric with an icon and label."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:329
+#: lib/phoenix_kit_hello_world/web/events_live.ex:330
 #, elixir-autogen, elixir-format
 msgid "System"
 msgstr ""
@@ -1371,12 +1374,12 @@ msgstr ""
 msgid "This button asks the server; the panel stays open through the re-render."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:229
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:331
 #, elixir-autogen, elixir-format
 msgid "This is an external PhoenixKit plugin module. Everything below confirms it's working."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:431
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:576
 #, elixir-autogen, elixir-format
 msgid "This page is your starting point. Replace it with your own content."
 msgstr ""
@@ -1426,7 +1429,7 @@ msgstr ""
 msgid "Type something, then press Esc or click outside: the dialog stays open, because closing would discard what you typed. Use Discard or Save."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:447
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:592
 #, elixir-autogen, elixir-format
 msgid "Update callbacks in %{file} — module key, name, tabs"
 msgstr ""
@@ -1447,7 +1450,7 @@ msgstr ""
 msgid "Users"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:347
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:492
 #, elixir-autogen, elixir-format
 msgid "Version"
 msgstr ""
@@ -1457,7 +1460,7 @@ msgstr ""
 msgid "View"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:342
+#: lib/phoenix_kit_hello_world/web/events_live.ex:343
 #, elixir-autogen, elixir-format
 msgid "View details"
 msgstr ""
@@ -1503,17 +1506,17 @@ msgstr ""
 msgid "You can make changes here"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:107
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:134
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to log events."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:121
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:148
 #, elixir-autogen, elixir-format
 msgid "You need the \"Moderate\" permission to log moderation events."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:308
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:410
 #, elixir-autogen, elixir-format
 msgid "You need the 'hello_world' permission to log events."
 msgstr ""
@@ -1578,7 +1581,7 @@ msgstr ""
 msgid "daisyUI's collapse, and core's accordion — a native details element that keeps the state the user left it in."
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:371
+#: lib/phoenix_kit_hello_world/web/events_live.ex:372
 #, elixir-autogen, elixir-format
 msgid "events"
 msgstr ""
@@ -1588,7 +1591,7 @@ msgstr ""
 msgid "featured — the first-run state of a whole page:"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:235
+#: lib/phoenix_kit_hello_world/web/events_live.ex:236
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr ""
@@ -1618,7 +1621,7 @@ msgstr ""
 msgid "unread"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/hello_live.ex:369
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:514
 #, elixir-autogen, elixir-format
 msgid "via %{assign}"
 msgstr ""
@@ -1628,7 +1631,7 @@ msgstr ""
 msgid "world"
 msgstr ""
 
-#: lib/phoenix_kit_hello_world/web/events_live.ex:282
+#: lib/phoenix_kit_hello_world/web/events_live.ex:283
 #, elixir-autogen, elixir-format
 msgid "%{count} event"
 msgid_plural "%{count} events"
@@ -2133,4 +2136,54 @@ msgstr ""
 #: lib/phoenix_kit_hello_world/web/components_live.ex:1147
 #, elixir-autogen, elixir-format
 msgid "Typed badges — each takes the data of its own domain:"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:260
+#, elixir-autogen, elixir-format
+msgid "Casual"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:445
+#, elixir-autogen, elixir-format
+msgid "Edit the greeting and save: the activity entry records each field that changed, from its old value to its new one."
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:260
+#, elixir-autogen, elixir-format
+msgid "Formal"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:457
+#, elixir-autogen, elixir-format
+msgid "Greeting"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:246
+#, elixir-autogen, elixir-format
+msgid "Greeting saved — the Events tab shows what changed."
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:442
+#, elixir-autogen, elixir-format
+msgid "Logging an update"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:221
+#, elixir-autogen, elixir-format
+msgid "Nothing changed, so nothing was logged."
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:466
+#, elixir-autogen, elixir-format
+msgid "Save greeting"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:458
+#, elixir-autogen, elixir-format
+msgid "Tone"
+msgstr ""
+
+#: lib/phoenix_kit_hello_world/web/hello_live.ex:168
+#, elixir-autogen, elixir-format
+msgid "You do not have permission to edit the greeting."
 msgstr ""

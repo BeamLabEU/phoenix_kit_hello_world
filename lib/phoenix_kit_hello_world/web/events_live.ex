@@ -39,6 +39,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
 
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitHelloWorld.Paths
+  alias PhoenixKitWeb.Components.Core.ActivityList
 
   @per_page 20
 
@@ -49,6 +50,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
     hello.custom
     hello.greeting
     hello_world.demo_event
+    hello_world.greeting_updated
     hello_world.moderation_event
   )
 
@@ -215,17 +217,10 @@ defmodule PhoenixKitHelloWorld.Web.EventsLive do
     end
   end
 
-  defp summarize_metadata(nil), do: nil
-
-  defp summarize_metadata(meta) do
-    meta
-    |> Map.drop(["actor_role"])
-    |> Enum.reject(fn {_k, v} -> v == nil or v == "" end)
-    |> case do
-      [] -> nil
-      entries -> Enum.map_join(entries, ", ", fn {k, v} -> "#{k}: #{v}" end)
-    end
-  end
+  # Core's own one-line summary, the one `/admin/activity` shows: what changed
+  # first ("Text Hello → Hi"), else the metadata's keys. Interpolating a value
+  # here by hand crashes on a map — a `"changes"` diff is one.
+  defp summarize_metadata(meta), do: ActivityList.summarize_details(meta)
 
   defp format_time_ago(datetime) do
     diff = DateTime.diff(DateTime.utc_now(), datetime, :second)

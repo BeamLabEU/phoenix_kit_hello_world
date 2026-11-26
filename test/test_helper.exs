@@ -96,6 +96,17 @@ Application.put_env(:phoenix_kit_hello_world, :test_repo_available, repo_availab
 # Exclude integration tests when DB is not available
 exclude = if repo_available, do: [], else: [:integration]
 
+# Tests for behaviour that exists in local core but not in the released pin.
+# They fail against Hex because the feature isn't there yet, so the default
+# run skips them:
+#
+#     PHOENIX_KIT_PATH=../phoenix_kit mix test --include needs_unreleased_core
+#
+# Currently: the `changes:` option of `PhoenixKit.Activity.log/3` (the
+# greeting update records what changed). Delete each from the tests and this
+# line once the pin catches up.
+exclude = exclude ++ [:needs_unreleased_core]
+
 # Force PhoenixKit's URL prefix cache to an empty string for tests so
 # `Paths.index()` etc. produce paths the test router can match. The test
 # database is single-language, and core emits no locale segment there since

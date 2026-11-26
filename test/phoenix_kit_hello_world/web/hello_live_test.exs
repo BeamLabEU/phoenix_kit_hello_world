@@ -86,6 +86,83 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
     end
   end
 
+  describe "logging an update (greeting form)" do
+    @form "#hello-greeting-form"
+
+    defp save(view, text, tone \\ "casual"),
+      do:
+        view |> form(@form, %{"greeting" => %{"text" => text, "tone" => tone}}) |> render_submit()
+
+    test "a save that moves a field logs one update", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hi there") =~ "Greeting saved"
+
+      # Holds on every core version: the entry, its actor and its own metadata.
+      assert_activity_logged("hello_world.greeting_updated",
+        actor_uuid: scope.user.uuid,
+        metadata_has: %{"source" => "greeting_form"}
+      )
+    end
+
+    # `changes:` on `Activity.log/3` is local core only; against the Hex pin
+    # the option is ignored and the entry carries no diff.
+    @tag :needs_unreleased_core
+    test "the entry records what changed, from and to", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      save(view, "Hi there", "formal")
+
+      entry = assert_activity_logged("hello_world.greeting_updated")
+
+      assert entry.metadata["changes"] == %{
+               "text" => %{"from" => "Hello, world!", "to" => "Hi there"},
+               "tone" => %{"from" => "casual", "to" => "formal"}
+             }
+
+      # A second save compares with the saved greeting, not the default.
+      save(view, "Hi again", "formal")
+
+      # Newest first.
+      [second, _first] =
+        Enum.filter(list_activities(), &(&1.action == "hello_world.greeting_updated"))
+
+      assert second.metadata["changes"] == %{
+               "text" => %{"from" => "Hi there", "to" => "Hi again"}
+             }
+    end
+
+    test "a save that moves nothing logs nothing", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hello, world!") =~ "Nothing changed"
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    test "an invalid greeting is not saved or logged", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      save(view, "")
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    test "without module access the form is hidden and a crafted save is refused", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/admin/hello-world")
+
+      refute has_element?(view, @form)
+
+      html =
+        render_submit(view, "save_greeting", %{"greeting" => %{"text" => "x", "tone" => "casual"}})
+
+      assert html =~ "permission to edit the greeting"
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+  end
+
   describe "sub-permission: hello_world.moderate" do
     # enable_system/0 writes a setting with no settings cache running here.
     @describetag :capture_log
