@@ -108,8 +108,8 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
        last_logged_at: nil,
        demo_event_snippet: @demo_event_snippet,
        update_snippet: @update_snippet,
-       greeting: %DemoGreeting{},
-       greeting_form: greeting_form(%DemoGreeting{})
+       greeting: DemoGreeting.new(),
+       greeting_form: greeting_form(DemoGreeting.new())
      )}
   end
 

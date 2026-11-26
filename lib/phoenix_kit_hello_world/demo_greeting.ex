@@ -17,13 +17,21 @@ defmodule PhoenixKitHelloWorld.DemoGreeting do
 
   @tones ~w(casual formal)
 
+  # No `default:` on the fields: `cast/4` turns an empty input into the
+  # field's default, so a blank greeting would silently become the default
+  # instead of failing `validate_required/2`. The starting greeting is
+  # `new/0` instead.
   @primary_key false
   embedded_schema do
-    field(:text, :string, default: "Hello, world!")
-    field(:tone, :string, default: "casual")
+    field(:text, :string)
+    field(:tone, :string)
   end
 
   @type t :: %__MODULE__{text: String.t(), tone: String.t()}
+
+  @doc "The greeting the page starts with."
+  @spec new() :: t()
+  def new, do: %__MODULE__{text: "Hello, world!", tone: "casual"}
 
   @doc "The tones the form offers."
   @spec tones() :: [String.t()]
