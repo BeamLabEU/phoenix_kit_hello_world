@@ -142,12 +142,54 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
       refute_activity_logged("hello_world.greeting_updated")
     end
 
-    test "an invalid greeting is not saved or logged", %{conn: conn} do
+    # A blank text must fail `validate_required`, never fall back to a
+    # schema default (which would log "Hi there → Hello, world!").
+    test "a blank or too-long greeting is refused, not saved or logged", %{conn: conn} do
       scope = fake_scope(permissions: ["hello_world"])
       {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
 
-      save(view, "")
+      for bad <- ["", "   ", String.duplicate("x", 81)] do
+        html = save(view, bad)
+        refute html =~ "Greeting saved"
+        refute html =~ "Nothing changed"
+      end
+
       refute_activity_logged("hello_world.greeting_updated")
+      assert :sys.get_state(view.pid).socket.assigns.greeting.text == "Hello, world!"
+    end
+
+    test "a second save compares with the saved greeting", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hi there") =~ "Greeting saved"
+      assert save(view, "Hi there") =~ "Nothing changed"
+    end
+
+    test "malformed greeting events are ignored, never crash the page", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      render_submit(view, "save_greeting", %{})
+      render_submit(view, "save_greeting", %{"greeting" => "x"})
+      render_change(view, "validate_greeting", %{})
+      render_change(view, "validate_greeting", %{"greeting" => "x"})
+
+      assert Process.alive?(view.pid)
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    test "with module access validate marks the form for errors", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      render_change(view, "validate_greeting", %{
+        "greeting" => %{"text" => "", "tone" => "casual"}
+      })
+
+      form = :sys.get_state(view.pid).socket.assigns.greeting_form
+      assert form.source.action == :validate
+      refute form.source.valid?
     end
 
     test "without module access the form is hidden and a crafted save is refused", %{conn: conn} do

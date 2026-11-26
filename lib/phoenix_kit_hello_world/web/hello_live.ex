@@ -156,7 +156,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
       when socket.assigns.module_access != true,
       do: {:noreply, socket}
 
-  def handle_event("validate_greeting", %{"greeting" => params}, socket) do
+  def handle_event("validate_greeting", %{"greeting" => %{} = params}, socket) do
     form =
       socket.assigns.greeting
       |> DemoGreeting.changeset(params)
@@ -166,12 +166,19 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
     {:noreply, assign(socket, :greeting_form, form)}
   end
 
-  def handle_event("save_greeting", %{"greeting" => params}, socket) do
-    if socket.assigns[:module_access] do
-      save_greeting(socket, params)
-    else
-      {:noreply,
-       put_flash(socket, :error, gettext("You do not have permission to edit the greeting."))}
+  def handle_event("validate_greeting", _params, socket), do: {:noreply, socket}
+
+  def handle_event("save_greeting", params, socket) do
+    case {socket.assigns[:module_access], params} do
+      {true, %{"greeting" => %{} = greeting_params}} ->
+        save_greeting(socket, greeting_params)
+
+      {true, _malformed} ->
+        {:noreply, socket}
+
+      _ ->
+        {:noreply,
+         put_flash(socket, :error, gettext("You do not have permission to edit the greeting."))}
     end
   end
 
