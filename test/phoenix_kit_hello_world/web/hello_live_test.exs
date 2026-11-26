@@ -161,6 +161,17 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
       assert html =~ "permission to edit the greeting"
       refute_activity_logged("hello_world.greeting_updated")
     end
+
+    test "without module access a crafted validate leaves the form state alone", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/admin/hello-world")
+      before = :sys.get_state(view.pid).socket.assigns.greeting_form
+
+      render_change(view, "validate_greeting", %{
+        "greeting" => %{"text" => "", "tone" => "casual"}
+      })
+
+      assert :sys.get_state(view.pid).socket.assigns.greeting_form == before
+    end
   end
 
   describe "sub-permission: hello_world.moderate" do

@@ -150,6 +150,12 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
     end
   end
 
+  # Every event checks the permission, not only the one that saves: the
+  # form is gated in the template, but a socket can send any event.
+  def handle_event("validate_greeting", _params, socket)
+      when socket.assigns.module_access != true,
+      do: {:noreply, socket}
+
   def handle_event("validate_greeting", %{"greeting" => params}, socket) do
     form =
       socket.assigns.greeting
