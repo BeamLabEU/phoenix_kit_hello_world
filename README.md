@@ -616,6 +616,51 @@ end
 
 For pages that shouldn't appear in the sidebar, set `visible: false`. The `:parent` field keeps the parent tab highlighted when viewing the child page. Use `:match` with `:prefix` on the parent so `my-module/anything` keeps it active.
 
+### Logging activity, and what an update changed
+
+Every mutation is logged with core's `PhoenixKit.Activity.log/3` (module key,
+action, options). It never raises, so it needs no guard of its own; read the
+actor with `PhoenixKitWeb.Actor`:
+
+```elixir
+PhoenixKit.Activity.log("my_module", "my_module.item_created",
+  PhoenixKitWeb.Actor.opts(socket) ++
+    [resource_type: "my_module_item", resource_uuid: item.uuid]
+)
+```
+
+An **update** also says what moved. Pass the changeset you saved as `changes:`
+and core stores each changed field under the entry's `metadata["changes"]` as
+`%{"field" => %{"from" => old, "to" => new}}`, which the Activity feed shows as
+"Name: Old → New" and the entry's page as a Before/After table:
+
+```elixir
+changeset = Item.changeset(item, params)
+
+with {:ok, item} <- Repo.update(changeset) do
+  PhoenixKit.Activity.log("my_module", "my_module.item_updated",
+    PhoenixKitWeb.Actor.opts(socket) ++
+      [resource_type: "my_module_item", resource_uuid: item.uuid, changes: changeset]
+  )
+
+  {:ok, item}
+end
+```
+
+- Values are made JSON-safe (dates, decimals, atoms), long strings are cut, and a
+  field whose name looks like a secret (`password`, `token`, `api_key`, …) is
+  recorded only as "changed", never with its values.
+- Narrow it with `PhoenixKit.Activity.changes(changeset, only: [...])`,
+  `except: [...]` or `redact: [:body]` (recorded as changed, without the text),
+  and pass the result as `changes:`. `changes(before, after, opts)` compares two
+  structs or maps when there is no changeset.
+- A save that moved nothing records no `"changes"` key; skip the log entirely
+  when `changeset.changes == %{}`, as the Overview page's greeting form does.
+- Keep `"changes"` out of your own `metadata`: it is the reserved key.
+
+`changes:` needs a core that has it; on an older core the option is ignored and
+the entry is logged without the diff.
+
 ## Navigation system
 
 Every path your module generates — in templates, redirects, or LiveView navigation — **must** go through `PhoenixKit.Utils.Routes.path/1`. This handles the configurable URL prefix (e.g., `/phoenix_kit`) and locale prefix (e.g., `/ja`) automatically.
