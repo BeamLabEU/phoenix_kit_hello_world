@@ -50,6 +50,12 @@ defmodule PhoenixKitHelloWorld.Web.ProjectHelloTabLive do
   use Phoenix.LiveView
   use Gettext, backend: PhoenixKitHelloWorld.Gettext
 
+  # A view embedded with `live_render/3` skips the live session's `on_mount`:
+  # the page's Content-Security-Policy nonces arrive in the embed session and
+  # are restored here, so an inline `<style>` a core component renders in this
+  # tab carries the nonce. A no-op on a core without `PhoenixKitWeb.CSP`.
+  on_mount(PhoenixKitHelloWorld.Web.CSP)
+
   @impl true
   def mount(_params, session, socket) do
     put_locale(session["locale"])

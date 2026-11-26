@@ -21,6 +21,7 @@ Modules can be **full-featured** (admin pages, settings, routes) or **headless**
 - [Component reuse](#component-reuse)
 - [Translations (Gettext)](#translations-gettext)
 - [JavaScript in modules](#javascript-in-modules)
+- [Content-Security-Policy](#content-security-policy)
 - [Available PhoenixKit APIs](#available-phoenixkit-apis)
 - [Cross-module integration](#cross-module-integration)
 - [Database conventions](#database-conventions)
@@ -418,6 +419,7 @@ lib/
     paths.ex                                 # Centralized path helpers (recommended)
     gettext.ex                               # The module's own Gettext backend
     web/
+      csp.ex                                   # Feature-detecting CSP nonce helper
       index_live.ex                          # Main admin page
       detail_live.ex                         # Detail/edit page
       settings_live.ex                       # Settings page (optional)
@@ -428,6 +430,7 @@ priv/
   static/assets/my_phoenix_kit_module.js     # Prebuilt JS hook bundle (only if needed)
 test/
   my_phoenix_kit_module_test.exs             # Behaviour compliance tests
+  csp_inline_tags_test.exs                   # No inline tag without a nonce, no inline handler
 mix.exs                                      # Package configuration
 ```
 
@@ -1605,6 +1608,87 @@ this.handleEvent("load-content", ({html, css}) => {
 // In your LiveView:
 {:noreply, push_event(socket, "load-content", %{html: content.html, css: content.css})}
 ```
+
+## Content-Security-Policy
+
+A host may send a policy that allows inline code by nonce only
+(`script-src 'self' 'nonce-…'`). The policy is the host's; your module only
+has to work under it. Core's guide is `guides/content-security-policy.md`.
+What a module does about it:
+
+**An inline `<style>` or `<script>` carries the page's nonce.** Core's
+`PhoenixKitWeb.CSP` is newer than the core floor of this template, so the
+template reads it through a small feature-detecting helper,
+`lib/phoenix_kit_hello_world/web/csp.ex`:
+
+```heex
+<style nonce={MyPhoenixKitModule.Web.CSP.nonce(:style)}>
+  .my-highlight { animation: my-highlight 3s ease-out; }
+</style>
+```
+
+```elixir
+def nonce(kind) when kind in [:script, :style] do
+  if Code.ensure_loaded?(PhoenixKitWeb.CSP) and function_exported?(PhoenixKitWeb.CSP, :nonce, 1) do
+    apply(PhoenixKitWeb.CSP, :nonce, [kind])
+  end
+end
+```
+
+On a core without nonce support it answers `nil`, and `nonce={nil}` renders no
+attribute: the markup is what it was before. `apply/3` is deliberate: a direct
+call does not pass `--warnings-as-errors` or dialyzer on the older core. Do not
+raise the `phoenix_kit` floor to call core directly; keep the helper until the
+floor gets there on its own. `nonce={…}` works in HEEx only: inside a plain
+string it is literal text.
+
+**No inline event handlers.** `onclick="…"`, `onerror="…"` and the rest cannot
+take a nonce, so a nonce policy blocks every one. In order of preference:
+
+1. a `phx-` binding or a `Phoenix.LiveView.JS` command;
+2. a hook, or one delegated `document` listener, in your own bundle
+   (`js_sources/0`), keyed on an attribute of your own
+   (`data-my-module-copy="…"`). `phoenix_kit_sync` copies its connection code
+   this way;
+3. one of core's `data-pk-*` attributes only for something cosmetic: older
+   cores do not listen for them, so the behaviour is absent there.
+
+The same goes for HTML your JavaScript builds (`innerHTML` with an `onclick`),
+and for `href="javascript:…"`.
+
+**A `<style>` or `<script>` your bundle creates is stamped before it is
+inserted:**
+
+```javascript
+var style = document.createElement("style");
+if (window.PhoenixKitInternals && window.PhoenixKitInternals.adoptStyle) {
+  window.PhoenixKitInternals.adoptStyle(style);
+}
+style.textContent = "…";
+document.head.appendChild(style);
+```
+
+**A LiveView that another page embeds with `live_render/3`** (a project tab, a
+view inside a dashboard) is a process of its own and skips the live session's
+`on_mount`, so it restores the nonces from its session itself:
+
+```elixir
+use Phoenix.LiveView
+on_mount(MyPhoenixKitModule.Web.CSP)
+```
+
+`ProjectHelloTabLive` does. Routed admin views (`live_view:` on a tab, or a
+route module) get core's own `on_mount` and need nothing.
+
+**The lint test keeps it that way.** `test/csp_inline_tags_test.exs` fails on
+an inline `<script>` / `<style>` in `lib/` without the nonce, on an inline
+handler attribute in `lib/` or the bundle, and on an unstamped tag the bundle
+creates. Copy it with the helper, rename the module names and list your bundle
+in `@bundles`.
+
+Not covered: inline `style="…"` attributes (a later step in core as well), and
+HTML written for an e-mail, which no page policy applies to. A document that is
+cached or the same for every visitor must never carry a nonce.
 
 ## Available PhoenixKit APIs
 
@@ -2931,6 +3015,7 @@ No config needed — auto-discovery handles the rest.
 10. **JS hooks** come from core, or ship as a prebuilt bundle declared by `js_sources/0` with namespaced hook names — never from an inline `<script>`
 11. **User-facing strings** go through your own Gettext backend in the macro form, and every shipped locale's `.po` is filled in the same change
 12. **The `phoenix_kit` pin** is the compound form (`>= x.y.z and < 4.0.0`), with the floor at the oldest core that has everything you call (3.5.0 at the lowest)
+13. **No inline event handlers, and a nonce on every inline `<style>` / `<script>`**, read through the feature-detecting `Web.CSP` helper — see [Content-Security-Policy](#content-security-policy)
 
 ## License
 
