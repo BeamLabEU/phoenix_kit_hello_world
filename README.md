@@ -629,37 +629,21 @@ PhoenixKit.Activity.log("my_module", "my_module.item_created",
 )
 ```
 
-An **update** also says what moved. Pass the changeset you saved as `changes:`
-and core stores each changed field under the entry's `metadata["changes"]` as
-`%{"field" => %{"from" => old, "to" => new}}`, which the Activity feed shows as
-"Name: Old → New" and the entry's page as a Before/After table:
+The Overview greeting form records the fields that changed under
+`metadata["changes"]`. The Events feed and the activity detail page use this
+map to show the old and new values. Build it from the changeset used for the
+successful update, while its data still holds the previous values:
 
 ```elixir
-changeset = Item.changeset(item, params)
-
-with {:ok, item} <- Repo.update(changeset) do
-  PhoenixKit.Activity.log("my_module", "my_module.item_updated",
-    PhoenixKitWeb.Actor.opts(socket) ++
-      [resource_type: "my_module_item", resource_uuid: item.uuid, changes: changeset]
-  )
-
-  {:ok, item}
+# From DemoGreeting.activity_changes/1. Only these public demo fields are logged.
+for {field, value} <- Map.take(changeset.changes, [:text, :tone]), into: %{} do
+  {Atom.to_string(field), %{"from" => Map.fetch!(changeset.data, field), "to" => value}}
 end
 ```
 
-- Values are made JSON-safe (dates, decimals, atoms), long strings are cut, and a
-  field whose name looks like a secret (`password`, `token`, `api_key`, …) is
-  recorded only as "changed", never with its values.
-- Narrow it with `PhoenixKit.Activity.changes(changeset, only: [...])`,
-  `except: [...]` or `redact: [:body]` (recorded as changed, without the text),
-  and pass the result as `changes:`. `changes(before, after, opts)` compares two
-  structs or maps when there is no changeset.
-- A save that moved nothing records no `"changes"` key; skip the log entirely
-  when `changeset.changes == %{}`, as the Overview page's greeting form does.
-- Keep `"changes"` out of your own `metadata`: it is the reserved key.
-
-`changes:` needs a core that has it; on an older core the option is ignored and
-the entry is logged without the diff.
+Pass the resulting map in the log options as `metadata: %{"changes" => changes}`.
+Skip the update event when the map is empty. When adapting this example, choose
+fields whose old and new values are appropriate for the audit log and JSON-safe.
 
 ## Navigation system
 

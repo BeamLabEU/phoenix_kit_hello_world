@@ -167,20 +167,7 @@ end
 - **Branch on the result.** `log/3` answers `{:ok, entry}` or `{:error, reason}`; a success flash is shown only for `{:ok, _}`.
 - **An action the module logs is listed in `EventsLive`'s `@action_types`**, or the Events filter cannot select it. `events_live_test.exs` drives the real senders and fails on a missing one.
 - **Mode** is `"manual"` for user-triggered and `"auto"` for system or background work.
-- **An update logs what changed: pass the saved changeset as `changes:`** (`HelloLive.save_greeting/2`). Core stores the moved fields under `metadata["changes"]` as `%{"field" => %{"from" => old, "to" => new}}` — JSON-safe values, secret-looking fields recorded only as changed, long values cut — and the Activity pages render it. Narrow it with `PhoenixKit.Activity.changes(changeset, only: / except: / redact:)` and pass the result; `changes(before, after, opts)` covers an update without a changeset. Skip the log when `changeset.changes == %{}`, and never write a `"changes"` key into your own `metadata` (it is reserved).
-
-```elixir
-changeset = Item.changeset(item, params)
-
-with {:ok, item} <- Repo.update(changeset) do
-  PhoenixKit.Activity.log("my_module", "my_module.item_updated",
-    PhoenixKitWeb.Actor.opts(socket) ++
-      [resource_type: "my_module_item", resource_uuid: item.uuid, changes: changeset]
-  )
-end
-```
-
-  `changes:` is newer than the core floor in `mix.exs`: on an older core the option is ignored and the entry carries no diff, so the tests asserting the diff are tagged `:needs_unreleased_core` (excluded by default in `test_helper.exs`). Raise the floor to the core release that ships it and drop the tag.
+- **An update logs what changed.** `DemoGreeting.activity_changes/1` takes the public demo fields from the applied changeset and builds `%{"field" => %{"from" => old, "to" => new}}`. Pass the map under `metadata["changes"]` for core’s Activity pages to display. Skip an unchanged save.
 
 ## Architecture
 
@@ -211,7 +198,7 @@ Key modules:
 
 - **`PhoenixKitHelloWorld`** — the behaviour implementation. Required callbacks (`module_key/0`, `module_name/0`, `enabled?/0`, `enable_system/0`, `disable_system/0`) plus `version/0`, `permission_metadata/0`, `admin_tabs/0`, `css_sources/0`, `notification_types/0`, `resource_links/0` (with `resolve_comment_resources/1`, the rich resolver a `resource_links/0` entry can point at), `translatable_labels/0`, `moderate_permission/0`, and the two duck-typed catalogs below. Registers five tabs: the parent plus four subtabs. Its moduledoc tables every `PhoenixKit.Module` callback at the core floor.
 - **`PhoenixKitHelloWorld.Paths`** — `index/0`, `events/0`, `components/0`, `notifications/0`.
-- **`Web.HelloLive`** — landing page; Scope API demonstration, the activity-logging button (base permission) and the moderation button (sub-permission), the greeting form that logs an update with `changes:` (base permission), and `<.inline>` for sentences with markup inside.
+- **`Web.HelloLive`** — landing page; Scope API demonstration, the activity-logging button (base permission) and the moderation button (sub-permission), the greeting form that logs an update with before/after activity metadata (base permission), and `<.inline>` for sentences with markup inside.
 - **`Web.EventsLive`** — activity feed using core's `<.load_more infinite>` and `InfiniteScroll` hook (no page-local JS), action filtering via core's `<.select>` over the module's own compile-time action list. Near-identical to `phoenix_kit_catalogue`'s events tab; this is the universal pattern.
 - **`Web.NotificationsLive`** — sends plain and custom-display notifications, reads unread counts, marks seen, dismisses, and subscribes to live updates via `PhoenixKit.Notifications.Events.subscribe/1`.
 - **`Web.ComponentsLive`** — showcase of core components with copy-paste snippets; `render/1` is a flat dispatch over per-section function components (see Feature notes). Ten raw daisyUI sections, then the core components: `button`, `status_badge`, `status_dot`, `accordion`, `nav_tabs`, `stat_card`, `hero_stat_card`, formatters, `simple_form` and the inputs, `form_section` + `form_actions`, `section_header` / `decimal_input` / `save_button`, `modal` (drawer placement, unsaved-input guard), `confirm_modal` and `alert_modal`, `popover_panel`, `table_default` with `search_toolbar` / `sort_header_cell` / `sort_selector` / `table_row_menu` / `toolbar_primary`, `tree_name_cell` and `row_link`, a managed table (`sortable_tbody` / `sortable_row`, drag handles, `bulk_actions_toolbar`, `column_settings_modal` over `PhoenixKitWeb.TableColumns`), bulk selection (client-owned `bulk_select_scope` and server-owned `bulk_actions_bar`), `search_picker`, `pagination` with `pagination_info` / `page_size_selector`, `empty_state`, `draggable_list`, the SVG charts, `date_nav`, and a note on when `admin_page_header` is needed. What it leaves out (TreePicker, MultilangForm, `activity_list`, `preview_card`, …) is listed on the page with what each needs.

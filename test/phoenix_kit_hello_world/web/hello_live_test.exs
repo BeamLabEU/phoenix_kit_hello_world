@@ -99,16 +99,12 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
 
       assert save(view, "Hi there") =~ "Greeting saved"
 
-      # Holds on every core version: the entry, its actor and its own metadata.
       assert_activity_logged("hello_world.greeting_updated",
         actor_uuid: scope.user.uuid,
         metadata_has: %{"source" => "greeting_form"}
       )
     end
 
-    # `changes:` on `Activity.log/3` is local core only; against the Hex pin
-    # the option is ignored and the entry carries no diff.
-    @tag :needs_unreleased_core
     test "the entry records what changed, from and to", %{conn: conn} do
       scope = fake_scope(permissions: ["hello_world"])
       {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
@@ -125,13 +121,9 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
       # A second save compares with the saved greeting, not the default.
       save(view, "Hi again", "formal")
 
-      # Newest first.
-      [second, _first] =
-        Enum.filter(list_activities(), &(&1.action == "hello_world.greeting_updated"))
-
-      assert second.metadata["changes"] == %{
-               "text" => %{"from" => "Hi there", "to" => "Hi again"}
-             }
+      assert_activity_logged("hello_world.greeting_updated",
+        metadata_has: %{"changes" => %{"text" => %{"from" => "Hi there", "to" => "Hi again"}}}
+      )
     end
 
     test "a save that moves nothing logs nothing", %{conn: conn} do
@@ -158,6 +150,17 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
       assert :sys.get_state(view.pid).socket.assigns.greeting.text == "Hello, world!"
     end
 
+    @tag :capture_log
+    test "a failed activity insert leaves the greeting update retryable", %{conn: conn} do
+      scope = fake_scope(user_uuid: "invalid-uuid")
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hi again") =~ "Failed to log event"
+      assert has_element?(view, ~s(input[name="greeting[text]"][value="Hi again"]))
+      assert save(view, "Hi again") =~ "Failed to log event"
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
     test "a second save compares with the saved greeting", %{conn: conn} do
       scope = fake_scope(permissions: ["hello_world"])
       {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
@@ -174,6 +177,12 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
       render_submit(view, "save_greeting", %{"greeting" => "x"})
       render_change(view, "validate_greeting", %{})
       render_change(view, "validate_greeting", %{"greeting" => "x"})
+
+      for field <- ["text", "tone"] do
+        params = Map.put(%{"text" => "Hi", "tone" => "formal"}, field, %{})
+        render_change(view, "validate_greeting", %{"greeting" => params})
+        render_submit(view, "save_greeting", %{"greeting" => params})
+      end
 
       assert Process.alive?(view.pid)
       refute_activity_logged("hello_world.greeting_updated")

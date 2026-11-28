@@ -7,9 +7,7 @@ defmodule PhoenixKitHelloWorld.DemoGreeting do
   own): the page holds the current greeting in an assign, so an edit lasts
   until the page is reloaded. What the demo shows is the logging, which is
   the same for a real table-backed record: build the changeset, save it, and
-  pass that changeset to `PhoenixKit.Activity.log/3` as `changes:` — core
-  records each field that moved as `%{"from" => old, "to" => new}` under
-  the entry's `metadata["changes"]`, and the Activity pages show it.
+  record the changed demo fields under the activity metadata's "changes" key.
   """
 
   use Ecto.Schema
@@ -45,5 +43,12 @@ defmodule PhoenixKitHelloWorld.DemoGreeting do
     |> validate_required([:text, :tone])
     |> validate_length(:text, max: 80)
     |> validate_inclusion(:tone, @tones)
+  end
+
+  @doc "Before and after values for the two public demo fields that changed."
+  def activity_changes(changeset) do
+    for {field, value} <- Map.take(changeset.changes, [:text, :tone]), into: %{} do
+      {Atom.to_string(field), %{"from" => Map.fetch!(changeset.data, field), "to" => value}}
+    end
   end
 end

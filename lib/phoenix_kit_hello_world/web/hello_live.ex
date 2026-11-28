@@ -28,12 +28,9 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   ## Logging an update with what changed
 
   The "Edit the greeting" form is the pattern for every update a module logs:
-  build the changeset, save it, and pass that same changeset to
-  `PhoenixKit.Activity.log/3` as `changes:`. Core records each field that moved
-  under the entry's `metadata["changes"]` as `%{"from" => old, "to" => new}`
-  (values made JSON-safe, secret-looking fields recorded only as changed, long
-  values cut), and the Activity pages show it as "Text: Hello → Hi". A save
-  that moved nothing is not logged at all. See `save_greeting/2`.
+  build the changeset, apply the update and record the changed demo fields
+  in the activity metadata. The Events page displays the old and new values.
+  See `save_greeting/2`.
 
   ## Two permission checks, side by side
 
@@ -81,12 +78,13 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   @update_snippet """
   changeset = Greeting.changeset(greeting, params)
 
-  with {:ok, greeting} <- Repo.update(changeset) do
+  with {:ok, greeting} <- Repo.update(changeset),
+       changes when changes != %{} <- Greeting.activity_changes(changeset) do
     PhoenixKit.Activity.log(
       "hello_world",
       "hello_world.greeting_updated",
       PhoenixKitWeb.Actor.opts(socket) ++
-        [resource_type: "hello_world", resource_uuid: greeting.uuid, changes: changeset]
+        [resource_type: "hello_world", resource_uuid: greeting.uuid, metadata: %{"changes" => changes}]
     )
   end
   """
@@ -95,6 +93,8 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   def mount(_params, _session, socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
+    greeting = DemoGreeting.new()
+
     {:ok,
      assign(socket,
        page_title: gettext("Hello World"),
@@ -102,14 +102,14 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
        user_roles: scope && Scope.user_roles(scope),
        is_admin: scope && Scope.can_access_admin_area?(scope),
        # Base key: a lookup in the scope's cached permission set.
-       module_access: scope && Scope.has_module_access?(scope, "hello_world"),
+       module_access: module_access?(socket),
        can_moderate: false,
        module_enabled: false,
        last_logged_at: nil,
        demo_event_snippet: @demo_event_snippet,
        update_snippet: @update_snippet,
-       greeting: DemoGreeting.new(),
-       greeting_form: greeting_form(DemoGreeting.new())
+       greeting: greeting,
+       greeting_form: greeting_form(greeting)
      )}
   end
 
@@ -128,7 +128,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
   @impl true
   def handle_event("log_demo_event", _params, socket) do
-    if socket.assigns[:module_access] do
+    if module_access?(socket) do
       log_and_report(socket, "hello_world.demo_event", "showcase_button")
     else
       {:noreply, put_flash(socket, :error, gettext("You do not have permission to log events."))}
@@ -152,25 +152,31 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
   # Every event checks the permission, not only the one that saves: the
   # form is gated in the template, but a socket can send any event.
-  def handle_event("validate_greeting", _params, socket)
-      when socket.assigns.module_access != true,
-      do: {:noreply, socket}
+  def handle_event(
+        "validate_greeting",
+        %{"greeting" => %{"text" => text, "tone" => tone} = params},
+        socket
+      )
+      when is_binary(text) and is_binary(tone) do
+    if module_access?(socket) do
+      form =
+        socket.assigns.greeting
+        |> DemoGreeting.changeset(params)
+        |> Map.put(:action, :validate)
+        |> to_form(as: :greeting)
 
-  def handle_event("validate_greeting", %{"greeting" => %{} = params}, socket) do
-    form =
-      socket.assigns.greeting
-      |> DemoGreeting.changeset(params)
-      |> Map.put(:action, :validate)
-      |> to_form(as: :greeting)
-
-    {:noreply, assign(socket, :greeting_form, form)}
+      {:noreply, assign(socket, :greeting_form, form)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("validate_greeting", _params, socket), do: {:noreply, socket}
 
   def handle_event("save_greeting", params, socket) do
-    case {socket.assigns[:module_access], params} do
-      {true, %{"greeting" => %{} = greeting_params}} ->
+    case {module_access?(socket), params} do
+      {true, %{"greeting" => %{"text" => text, "tone" => tone} = greeting_params}}
+      when is_binary(text) and is_binary(tone) ->
         save_greeting(socket, greeting_params)
 
       {true, _malformed} ->
@@ -190,6 +196,9 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
     Logger.debug("[#{inspect(__MODULE__)}] Unhandled info: #{inspect(msg)}")
     {:noreply, socket}
   end
+
+  defp module_access?(socket),
+    do: Scope.has_module_access?(socket.assigns[:phoenix_kit_current_scope], "hello_world")
 
   # Sub-permission check. `Scope.can?/2` is false for a nil scope, for a role
   # without the grant, and while the module is disabled.
@@ -218,51 +227,52 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
   # ── Logging an update with what changed ─────────────────────────
 
-  # The update pattern: one changeset is both what is saved and what is
-  # logged. `changes: changeset` makes core record each field that moved as
-  # `%{"from" => old, "to" => new}` under `metadata["changes"]`. A save that
-  # moved nothing logs nothing. (A table-backed record would `Repo.update/1`
-  # the changeset here; this demo greeting lives in an assign.)
   defp save_greeting(socket, params) do
     changeset = DemoGreeting.changeset(socket.assigns.greeting, params)
 
     case Ecto.Changeset.apply_action(changeset, :update) do
-      {:ok, greeting} ->
-        socket = assign(socket, greeting: greeting, greeting_form: greeting_form(greeting))
+      {:ok, greeting} when changeset.changes == %{} ->
+        {:noreply,
+         socket
+         |> assign(:greeting_form, greeting_form(greeting))
+         |> put_flash(:info, gettext("Nothing changed, so nothing was logged."))}
 
-        if changeset.changes == %{} do
-          {:noreply, put_flash(socket, :info, gettext("Nothing changed, so nothing was logged."))}
-        else
-          log_greeting_update(socket, changeset)
-        end
+      {:ok, greeting} ->
+        log_greeting_update(socket, greeting, changeset)
 
       {:error, changeset} ->
         {:noreply, assign(socket, :greeting_form, to_form(changeset, as: :greeting))}
     end
   end
 
-  defp log_greeting_update(socket, changeset) do
+  defp log_greeting_update(socket, greeting, changeset) do
     case PhoenixKit.Activity.log(
            "hello_world",
            "hello_world.greeting_updated",
            PhoenixKitWeb.Actor.opts(socket) ++
              [
                resource_type: "hello_world",
-               metadata: %{"source" => "greeting_form"},
-               changes: changeset
+               metadata: %{
+                 "source" => "greeting_form",
+                 "changes" => DemoGreeting.activity_changes(changeset)
+               }
              ]
          ) do
       {:ok, _entry} ->
         {:noreply,
          socket
-         |> assign(:last_logged_at, DateTime.utc_now())
+         |> assign(
+           greeting: greeting,
+           greeting_form: greeting_form(greeting),
+           last_logged_at: DateTime.utc_now()
+         )
          |> put_flash(:info, gettext("Greeting saved — the Events tab shows what changed."))}
 
-      {:error, reason} ->
-        Logger.warning("[HelloWorld] Failed to log the greeting update: #{inspect(reason)}")
-
+      {:error, _reason} ->
         {:noreply,
-         put_flash(socket, :error, gettext("Failed to log event. Check the server logs."))}
+         socket
+         |> assign(:greeting_form, to_form(changeset, as: :greeting))
+         |> put_flash(:error, gettext("Failed to log event. Check the server logs."))}
     end
   end
 
