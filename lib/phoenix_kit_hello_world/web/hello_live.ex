@@ -25,6 +25,13 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   (module key, action, options — it never raises) with the acting user read
   by `PhoenixKitWeb.Actor`.
 
+  ## Logging an update with what changed
+
+  The "Edit the greeting" form is the pattern for every update a module logs:
+  build the changeset, apply the update and record the changed demo fields
+  in the activity metadata. The Events page displays the old and new values.
+  See `save_greeting/2`.
+
   ## Two permission checks, side by side
 
   "Log demo event" is gated on the module's **base** permission
@@ -56,6 +63,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   require Logger
 
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKitHelloWorld.DemoGreeting
   alias PhoenixKitHelloWorld.Paths
 
   @demo_event_snippet """
@@ -67,9 +75,25 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
   )
   """
 
+  @update_snippet """
+  changeset = Greeting.changeset(greeting, params)
+
+  with {:ok, greeting} <- Repo.update(changeset),
+       changes when changes != %{} <- Greeting.activity_changes(changeset) do
+    PhoenixKit.Activity.log(
+      "hello_world",
+      "hello_world.greeting_updated",
+      PhoenixKitWeb.Actor.opts(socket) ++
+        [resource_type: "hello_world", resource_uuid: greeting.uuid, metadata: %{"changes" => changes}]
+    )
+  end
+  """
+
   @impl true
   def mount(_params, _session, socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
+
+    greeting = DemoGreeting.new()
 
     {:ok,
      assign(socket,
@@ -78,11 +102,14 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
        user_roles: scope && Scope.user_roles(scope),
        is_admin: scope && Scope.can_access_admin_area?(scope),
        # Base key: a lookup in the scope's cached permission set.
-       module_access: scope && Scope.has_module_access?(scope, "hello_world"),
+       module_access: module_access?(socket),
        can_moderate: false,
        module_enabled: false,
        last_logged_at: nil,
-       demo_event_snippet: @demo_event_snippet
+       demo_event_snippet: @demo_event_snippet,
+       update_snippet: @update_snippet,
+       greeting: greeting,
+       greeting_form: greeting_form(greeting)
      )}
   end
 
@@ -101,7 +128,7 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
 
   @impl true
   def handle_event("log_demo_event", _params, socket) do
-    if socket.assigns[:module_access] do
+    if module_access?(socket) do
       log_and_report(socket, "hello_world.demo_event", "showcase_button")
     else
       {:noreply, put_flash(socket, :error, gettext("You do not have permission to log events."))}
@@ -123,6 +150,44 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
     end
   end
 
+  # Every event checks the permission, not only the one that saves: the
+  # form is gated in the template, but a socket can send any event.
+  def handle_event(
+        "validate_greeting",
+        %{"greeting" => %{"text" => text, "tone" => tone} = params},
+        socket
+      )
+      when is_binary(text) and is_binary(tone) do
+    if module_access?(socket) do
+      form =
+        socket.assigns.greeting
+        |> DemoGreeting.changeset(params)
+        |> Map.put(:action, :validate)
+        |> to_form(as: :greeting)
+
+      {:noreply, assign(socket, :greeting_form, form)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("validate_greeting", _params, socket), do: {:noreply, socket}
+
+  def handle_event("save_greeting", params, socket) do
+    case {module_access?(socket), params} do
+      {true, %{"greeting" => %{"text" => text, "tone" => tone} = greeting_params}}
+      when is_binary(text) and is_binary(tone) ->
+        save_greeting(socket, greeting_params)
+
+      {true, _malformed} ->
+        {:noreply, socket}
+
+      _ ->
+        {:noreply,
+         put_flash(socket, :error, gettext("You do not have permission to edit the greeting."))}
+    end
+  end
+
   # Defensive catch-all so a stray PubSub broadcast or OTP message can't
   # crash this LiveView with a FunctionClauseError. Logs at :debug so it
   # never spams in production but stays grep-able during development.
@@ -131,6 +196,9 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
     Logger.debug("[#{inspect(__MODULE__)}] Unhandled info: #{inspect(msg)}")
     {:noreply, socket}
   end
+
+  defp module_access?(socket),
+    do: Scope.has_module_access?(socket.assigns[:phoenix_kit_current_scope], "hello_world")
 
   # Sub-permission check. `Scope.can?/2` is false for a nil scope, for a role
   # without the grant, and while the module is disabled.
@@ -156,6 +224,63 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
          put_flash(socket, :error, gettext("Failed to log event. Check the server logs."))}
     end
   end
+
+  # ── Logging an update with what changed ─────────────────────────
+
+  defp save_greeting(socket, params) do
+    changeset = DemoGreeting.changeset(socket.assigns.greeting, params)
+
+    case Ecto.Changeset.apply_action(changeset, :update) do
+      {:ok, greeting} when changeset.changes == %{} ->
+        {:noreply,
+         socket
+         |> assign(:greeting_form, greeting_form(greeting))
+         |> put_flash(:info, gettext("Nothing changed, so nothing was logged."))}
+
+      {:ok, greeting} ->
+        log_greeting_update(socket, greeting, changeset)
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :greeting_form, to_form(changeset, as: :greeting))}
+    end
+  end
+
+  defp log_greeting_update(socket, greeting, changeset) do
+    case PhoenixKit.Activity.log(
+           "hello_world",
+           "hello_world.greeting_updated",
+           PhoenixKitWeb.Actor.opts(socket) ++
+             [
+               resource_type: "hello_world",
+               metadata: %{
+                 "source" => "greeting_form",
+                 "changes" => DemoGreeting.activity_changes(changeset)
+               }
+             ]
+         ) do
+      {:ok, _entry} ->
+        {:noreply,
+         socket
+         |> assign(
+           greeting: greeting,
+           greeting_form: greeting_form(greeting),
+           last_logged_at: DateTime.utc_now()
+         )
+         |> put_flash(:info, gettext("Greeting saved — the Events tab shows what changed."))}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> assign(:greeting_form, to_form(changeset, as: :greeting))
+         |> put_flash(:error, gettext("Failed to log event. Check the server logs."))}
+    end
+  end
+
+  defp greeting_form(greeting),
+    do: greeting |> DemoGreeting.changeset(%{}) |> to_form(as: :greeting)
+
+  defp tone_options,
+    do: [{gettext("Casual"), "casual"}, {gettext("Formal"), "formal"}]
 
   # ── Activity logging ────────────────────────────────────────────
 
@@ -328,6 +453,49 @@ defmodule PhoenixKitHelloWorld.Web.HelloLive do
               {gettext("Show the code pattern")}
             </summary>
             <pre class="text-xs bg-base-200 p-3 rounded mt-2 overflow-x-auto"><code>{@demo_event_snippet}</code></pre>
+          </details>
+        </div>
+      </div>
+
+      <%!-- Logging an update with what changed --%>
+      <div :if={@module_access} class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h3 class="card-title text-lg">
+            <.icon name="hero-pencil-square" class="w-5 h-5" />
+            {gettext("Logging an update")}
+          </h3>
+          <p class="text-base-content/70 text-sm">
+            {gettext(
+              "Edit the greeting and save: the activity entry records each field that changed, from its old value to its new one."
+            )}
+          </p>
+
+          <.form
+            for={@greeting_form}
+            id="hello-greeting-form"
+            phx-change="validate_greeting"
+            phx-submit="save_greeting"
+            class="flex flex-col gap-3 max-w-xl mt-2"
+          >
+            <.input field={@greeting_form[:text]} type="text" label={gettext("Greeting")} />
+            <.select field={@greeting_form[:tone]} label={gettext("Tone")} options={tone_options()} />
+            <div>
+              <button
+                type="submit"
+                phx-disable-with={gettext("Saving…")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-check" class="w-4 h-4" />
+                {gettext("Save greeting")}
+              </button>
+            </div>
+          </.form>
+
+          <details class="mt-3" phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}>
+            <summary class="text-xs text-base-content/60 cursor-pointer">
+              {gettext("Show the code pattern")}
+            </summary>
+            <pre class="text-xs bg-base-200 p-3 rounded mt-2 overflow-x-auto"><code>{@update_snippet}</code></pre>
           </details>
         </div>
       </div>

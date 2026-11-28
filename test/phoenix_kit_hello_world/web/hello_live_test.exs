@@ -86,6 +86,145 @@ defmodule PhoenixKitHelloWorld.Web.HelloLiveTest do
     end
   end
 
+  describe "logging an update (greeting form)" do
+    @form "#hello-greeting-form"
+
+    defp save(view, text, tone \\ "casual"),
+      do:
+        view |> form(@form, %{"greeting" => %{"text" => text, "tone" => tone}}) |> render_submit()
+
+    test "a save that moves a field logs one update", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hi there") =~ "Greeting saved"
+
+      assert_activity_logged("hello_world.greeting_updated",
+        actor_uuid: scope.user.uuid,
+        metadata_has: %{"source" => "greeting_form"}
+      )
+    end
+
+    test "the entry records what changed, from and to", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      save(view, "Hi there", "formal")
+
+      entry = assert_activity_logged("hello_world.greeting_updated")
+
+      assert entry.metadata["changes"] == %{
+               "text" => %{"from" => "Hello, world!", "to" => "Hi there"},
+               "tone" => %{"from" => "casual", "to" => "formal"}
+             }
+
+      # A second save compares with the saved greeting, not the default.
+      save(view, "Hi again", "formal")
+
+      assert_activity_logged("hello_world.greeting_updated",
+        metadata_has: %{"changes" => %{"text" => %{"from" => "Hi there", "to" => "Hi again"}}}
+      )
+    end
+
+    test "a save that moves nothing logs nothing", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hello, world!") =~ "Nothing changed"
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    # A blank text must fail `validate_required`, never fall back to a
+    # schema default (which would log "Hi there → Hello, world!").
+    test "a blank or too-long greeting is refused, not saved or logged", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      for bad <- ["", "   ", String.duplicate("x", 81)] do
+        html = save(view, bad)
+        refute html =~ "Greeting saved"
+        refute html =~ "Nothing changed"
+      end
+
+      refute_activity_logged("hello_world.greeting_updated")
+      assert :sys.get_state(view.pid).socket.assigns.greeting.text == "Hello, world!"
+    end
+
+    @tag :capture_log
+    test "a failed activity insert leaves the greeting update retryable", %{conn: conn} do
+      scope = fake_scope(user_uuid: "invalid-uuid")
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hi again") =~ "Failed to log event"
+      assert has_element?(view, ~s(input[name="greeting[text]"][value="Hi again"]))
+      assert save(view, "Hi again") =~ "Failed to log event"
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    test "a second save compares with the saved greeting", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      assert save(view, "Hi there") =~ "Greeting saved"
+      assert save(view, "Hi there") =~ "Nothing changed"
+    end
+
+    test "malformed greeting events are ignored, never crash the page", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      render_submit(view, "save_greeting", %{})
+      render_submit(view, "save_greeting", %{"greeting" => "x"})
+      render_change(view, "validate_greeting", %{})
+      render_change(view, "validate_greeting", %{"greeting" => "x"})
+
+      for field <- ["text", "tone"] do
+        params = Map.put(%{"text" => "Hi", "tone" => "formal"}, field, %{})
+        render_change(view, "validate_greeting", %{"greeting" => params})
+        render_submit(view, "save_greeting", %{"greeting" => params})
+      end
+
+      assert Process.alive?(view.pid)
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    test "with module access validate marks the form for errors", %{conn: conn} do
+      scope = fake_scope(permissions: ["hello_world"])
+      {:ok, view, _html} = conn |> put_test_scope(scope) |> live("/admin/hello-world")
+
+      render_change(view, "validate_greeting", %{
+        "greeting" => %{"text" => "", "tone" => "casual"}
+      })
+
+      form = :sys.get_state(view.pid).socket.assigns.greeting_form
+      assert form.source.action == :validate
+      refute form.source.valid?
+    end
+
+    test "without module access the form is hidden and a crafted save is refused", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/admin/hello-world")
+
+      refute has_element?(view, @form)
+
+      html =
+        render_submit(view, "save_greeting", %{"greeting" => %{"text" => "x", "tone" => "casual"}})
+
+      assert html =~ "permission to edit the greeting"
+      refute_activity_logged("hello_world.greeting_updated")
+    end
+
+    test "without module access a crafted validate leaves the form state alone", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/admin/hello-world")
+      before = :sys.get_state(view.pid).socket.assigns.greeting_form
+
+      render_change(view, "validate_greeting", %{
+        "greeting" => %{"text" => "", "tone" => "casual"}
+      })
+
+      assert :sys.get_state(view.pid).socket.assigns.greeting_form == before
+    end
+  end
+
   describe "sub-permission: hello_world.moderate" do
     # enable_system/0 writes a setting with no settings cache running here.
     @describetag :capture_log

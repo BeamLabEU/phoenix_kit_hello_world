@@ -616,6 +616,35 @@ end
 
 For pages that shouldn't appear in the sidebar, set `visible: false`. The `:parent` field keeps the parent tab highlighted when viewing the child page. Use `:match` with `:prefix` on the parent so `my-module/anything` keeps it active.
 
+### Logging activity, and what an update changed
+
+Every mutation is logged with core's `PhoenixKit.Activity.log/3` (module key,
+action, options). It never raises, so it needs no guard of its own; read the
+actor with `PhoenixKitWeb.Actor`:
+
+```elixir
+PhoenixKit.Activity.log("my_module", "my_module.item_created",
+  PhoenixKitWeb.Actor.opts(socket) ++
+    [resource_type: "my_module_item", resource_uuid: item.uuid]
+)
+```
+
+The Overview greeting form records the fields that changed under
+`metadata["changes"]`. The Events feed and the activity detail page use this
+map to show the old and new values. Build it from the changeset used for the
+successful update, while its data still holds the previous values:
+
+```elixir
+# From DemoGreeting.activity_changes/1. Only these public demo fields are logged.
+for {field, value} <- Map.take(changeset.changes, [:text, :tone]), into: %{} do
+  {Atom.to_string(field), %{"from" => Map.fetch!(changeset.data, field), "to" => value}}
+end
+```
+
+Pass the resulting map in the log options as `metadata: %{"changes" => changes}`.
+Skip the update event when the map is empty. When adapting this example, choose
+fields whose old and new values are appropriate for the audit log and JSON-safe.
+
 ## Navigation system
 
 Every path your module generates — in templates, redirects, or LiveView navigation — **must** go through `PhoenixKit.Utils.Routes.path/1`. This handles the configurable URL prefix (e.g., `/phoenix_kit`) and locale prefix (e.g., `/ja`) automatically.

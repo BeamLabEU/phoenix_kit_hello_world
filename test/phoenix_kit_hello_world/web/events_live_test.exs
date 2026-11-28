@@ -58,6 +58,19 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
   end
 
   describe "populated feed" do
+    # An update's diff lives under metadata["changes"]; the row reads it the way
+    # core's feed does instead of interpolating the map (which crashed).
+    test "an entry that records what changed reads as from → to", %{conn: conn} do
+      entry =
+        log!("hello_world.greeting_updated", %{
+          "changes" => %{"text" => %{"from" => "Hello", "to" => "Hi"}}
+        })
+
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#entry-#{entry.uuid}", "Hello → Hi")
+    end
+
     test "lists this module's entries with action, mode, details and a detail link", %{
       conn: conn
     } do
@@ -211,6 +224,10 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
       render_click(overview, "log_demo_event", %{})
       render_click(overview, "log_moderation_event", %{})
 
+      render_submit(overview, "save_greeting", %{
+        "greeting" => %{"text" => "Hi there", "tone" => "formal"}
+      })
+
       {:ok, notifications, _html} = live(conn, "/admin/hello-world/notifications")
       render_click(notifications, "send_basic", %{})
       render_click(notifications, "send_custom", %{})
@@ -222,7 +239,7 @@ defmodule PhoenixKitHelloWorld.Web.EventsLiveTest do
         |> List.flatten()
         |> Enum.sort()
 
-      assert length(logged) == 4
+      assert length(logged) == 5
 
       {:ok, view, _html} = live(conn, @path)
       assert Enum.sort(option_values(view) -- [""]) == logged
